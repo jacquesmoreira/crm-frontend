@@ -141,11 +141,31 @@ function AuthScreen({onLogin}) {
   const [mode,setMode]   = useState("login");
   const [form,setForm]   = useState({email:"demo@crmpro.com",pass:"demo123",name:"",company:""});
   const [loading,setLoading] = useState(false);
+  const [error,setError] = useState("");
   const up = k => v => setForm(p=>({...p,[k]:v}));
 
-  const submit = () => {
+  const submit = async () => {
     setLoading(true);
-    setTimeout(()=>{ setLoading(false); onLogin({name:"Ana Silva",email:form.email}); },800);
+    setError("");
+    try {
+      const API = import.meta.env.VITE_API_URL || "";
+      const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
+      const body = mode === "login"
+        ? { email: form.email, password: form.pass }
+        : { name: form.name, email: form.email, password: form.pass, company: form.company };
+      const r = await fetch(API + endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Erro ao autenticar");
+      localStorage.setItem("crm_token", d.token);
+      onLogin({ name: d.user.name, email: d.user.email });
+    } catch (err) {
+      setError(err.message);
+    }
+    setLoading(false);
   };
 
   return(
@@ -181,6 +201,12 @@ function AuthScreen({onLogin}) {
           {mode==="login"&&(
             <div style={{textAlign:"right",marginBottom:16}}>
               <span style={{fontSize:12,color:C.blue,cursor:"pointer"}}>Esqueci a senha</span>
+            </div>
+          )}
+
+          {error&&(
+            <div style={{background:"#fef2f2",color:"#b91c1c",borderRadius:8,padding:"10px 12px",fontSize:13,marginBottom:12}}>
+              {error}
             </div>
           )}
 
