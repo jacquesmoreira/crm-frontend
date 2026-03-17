@@ -3,12 +3,3 @@
   "outputDirectory": "dist",
   "framework": "vite"
 }
-```
-
-**3. Salve (Ctrl+S)**
-
-**4. No CMD dentro de `crm-frontend`:**
-```
-git add .
-git commit -m "add vercel config"
-git push
