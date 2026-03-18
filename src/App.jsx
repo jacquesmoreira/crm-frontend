@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 
-// ─── PALETA & HELPERS ──────────────────────────────────────────────
 const C = {
   green:"#10b981",greenBg:"#ecfdf5",greenTx:"#047857",
   blue:"#3b82f6", blueBg:"#eff6ff", blueTx:"#1d4ed8",
@@ -11,9 +10,9 @@ const C = {
   slate:"#64748b", light:"#f8fafc", border:"#e2e8f0",
   dark:"#0f172a",  text:"#1e293b",  muted:"#94a3b8",
 };
-const fmt   = n => "R$ "+n.toLocaleString("pt-BR");
-const card  = {background:"white",borderRadius:12,border:`1px solid ${C.border}`,padding:"18px 20px"};
-const SC    = {
+const fmt  = n => "R$ "+n.toLocaleString("pt-BR");
+const card = {background:"white",borderRadius:12,border:`1px solid ${C.border}`,padding:"18px 20px"};
+const SC   = {
   "Novo Lead":   {c:C.purple,bg:C.purpleBg,tx:C.purpleTx},
   "Qualificado": {c:C.blue,  bg:C.blueBg,  tx:C.blueTx},
   "Proposta":    {c:C.amber, bg:C.amberBg, tx:C.amberTx},
@@ -26,33 +25,24 @@ const badge  = (label,color,bg,tx,small) => (
     fontSize:small?10:11,fontWeight:600,whiteSpace:"nowrap"}}>{label}</span>
 );
 
-// ─── WORKSPACES ────────────────────────────────────────────────────
-const WORKSPACES = [
-  {id:"ws1",name:"AgênciaX Brasil",  plan:"Pro",    role:"Admin",   color:"#10b981"},
-  {id:"ws2",name:"Loja Virtual SC",  plan:"Starter",role:"Gestor",  color:"#3b82f6"},
-  {id:"ws3",name:"Imobiliária BC",   plan:"Pro",    role:"Vendedor",color:"#f59e0b"},
-];
-
-// ─── LEADS DATA ────────────────────────────────────────────────────
 const INIT_LEADS = [
-  {id:1,name:"Fernanda Lima",   company:"Grupo Omega",    email:"flima@omega.com",   phone:"(11) 98765-4321",stage:"Negociação",value:28000,score:92,tags:["VIP"],       assignee:"Ana Silva",  source:"Meta Ads",  wa:"connected",notes:"Quer desconto de 15%. Decision maker confirmado."},
-  {id:2,name:"Carlos Mendes",   company:"TechBR Soluções",email:"carlos@techbr.com", phone:"(47) 99123-4567",stage:"Proposta",   value:12500,score:85,tags:["Quente"],   assignee:"Pedro Costa",source:"Meta Ads",  wa:"pending", notes:"Esperando aprovação do sócio. Último contato há 4 dias."},
-  {id:3,name:"Amanda Vieira",   company:"Vieira & Filhos",email:"amanda@vf.com",      phone:"(51) 99876-1234",stage:"Negociação",value:19500,score:88,tags:["B2B"],       assignee:"Lara Mendes",source:"Indicação", wa:"connected",notes:"Quer módulo de relatórios avançados. Call quinta-feira."},
-  {id:4,name:"Beatriz Gomes",   company:"BG Consultoria", email:"bea@bgconsult.com",  phone:"(19) 99234-5678",stage:"Proposta",   value:15000,score:78,tags:["Quente"],   assignee:"Lara Mendes",source:"Google Ads",wa:"none",    notes:"Proposta enviada há 5 dias sem resposta."},
-  {id:5,name:"Roberto Alves",   company:"Construtora SA", email:"roberto@const.com",  phone:"(48) 99456-7890",stage:"Qualificado",value:8500, score:67,tags:["B2B"],      assignee:"Ana Silva",  source:"Site",      wa:"pending", notes:"Pediu informações sobre integração com ERP Totvs."},
-  {id:6,name:"João Paulo Silva",company:"JP Importações", email:"jp@jpimport.com",    phone:"(11) 94321-8765",stage:"Fechado",    value:45000,score:95,tags:["VIP"],       assignee:"Ana Silva",  source:"LinkedIn",  wa:"connected",notes:"Contrato assinado. Onboarding em andamento."},
-  {id:7,name:"Lucas Ferreira",  company:"StartupX",       email:"lucas@startupx.io",  phone:"(21) 98123-9876",stage:"Novo Lead",  value:5500, score:55,tags:["Tech"],     assignee:"Pedro Costa",source:"Evento",    wa:"none",    notes:"Conhecido no evento de tecnologia de março."},
-  {id:8,name:"Mariana Torres",  company:"Studio MT",      email:"mari@studimt.com",   phone:"(47) 97654-3210",stage:"Novo Lead",  value:3200, score:42,tags:["Frio"],     assignee:"Pedro Costa",source:"Meta Ads",  wa:"none",    notes:"Baixou e-book há 1 semana."},
-  {id:9,name:"Diego Cavalcanti",company:"Cavalcanti & Cia",email:"diego@cav.com",     phone:"(81) 99345-6789",stage:"Qualificado",value:22000,score:74,tags:["Grande"],   assignee:"Lara Mendes",source:"Indicação", wa:"connected",notes:"3 decisores envolvidos. Processo complexo."},
+  {id:1,name:"Fernanda Lima",   company:"Grupo Omega",    email:"flima@omega.com",   phone:"(11) 98765-4321",stage:"Negociação",value:28000,score:92,tags:["VIP"],     assignee:"Ana Silva",  source:"Meta Ads",  wa:"connected",notes:"Quer desconto de 15%. Decision maker confirmado."},
+  {id:2,name:"Carlos Mendes",   company:"TechBR Soluções",email:"carlos@techbr.com", phone:"(47) 99123-4567",stage:"Proposta",   value:12500,score:85,tags:["Quente"], assignee:"Pedro Costa",source:"Meta Ads",  wa:"pending", notes:"Esperando aprovação do sócio. Último contato há 4 dias."},
+  {id:3,name:"Amanda Vieira",   company:"Vieira & Filhos",email:"amanda@vf.com",      phone:"(51) 99876-1234",stage:"Negociação",value:19500,score:88,tags:["B2B"],     assignee:"Lara Mendes",source:"Indicação", wa:"connected",notes:"Quer módulo de relatórios avançados. Call quinta-feira."},
+  {id:4,name:"Beatriz Gomes",   company:"BG Consultoria", email:"bea@bgconsult.com",  phone:"(19) 99234-5678",stage:"Proposta",   value:15000,score:78,tags:["Quente"], assignee:"Lara Mendes",source:"Google Ads",wa:"none",    notes:"Proposta enviada há 5 dias sem resposta."},
+  {id:5,name:"Roberto Alves",   company:"Construtora SA", email:"roberto@const.com",  phone:"(48) 99456-7890",stage:"Qualificado",value:8500, score:67,tags:["B2B"],    assignee:"Ana Silva",  source:"Site",      wa:"pending", notes:"Pediu informações sobre integração com ERP Totvs."},
+  {id:6,name:"João Paulo Silva",company:"JP Importações", email:"jp@jpimport.com",    phone:"(11) 94321-8765",stage:"Fechado",    value:45000,score:95,tags:["VIP"],     assignee:"Ana Silva",  source:"LinkedIn",  wa:"connected",notes:"Contrato assinado. Onboarding em andamento."},
+  {id:7,name:"Lucas Ferreira",  company:"StartupX",       email:"lucas@startupx.io",  phone:"(21) 98123-9876",stage:"Novo Lead",  value:5500, score:55,tags:["Tech"],   assignee:"Pedro Costa",source:"Evento",    wa:"none",    notes:"Conhecido no evento de tecnologia de março."},
+  {id:8,name:"Mariana Torres",  company:"Studio MT",      email:"mari@studimt.com",   phone:"(47) 97654-3210",stage:"Novo Lead",  value:3200, score:42,tags:["Frio"],   assignee:"Pedro Costa",source:"Meta Ads",  wa:"none",    notes:"Baixou e-book há 1 semana."},
+  {id:9,name:"Diego Cavalcanti",company:"Cavalcanti & Cia",email:"diego@cav.com",     phone:"(81) 99345-6789",stage:"Qualificado",value:22000,score:74,tags:["Grande"], assignee:"Lara Mendes",source:"Indicação", wa:"connected",notes:"3 decisores envolvidos. Processo complexo."},
 ];
 
-// ─── META ADS DATA ─────────────────────────────────────────────────
 const ADS_CAMPAIGNS = [
-  {id:1,name:"Volta às Aulas 2026 — Beway",status:"Ativo",  budget:310, spent:287,  leads:18,cpl:15.9,roas:2.84,synced:16,conv:3},
-  {id:2,name:"Partners B2B — VipVidros",   status:"Ativo",  budget:150, spent:98,   leads:4, cpl:24.5,roas:0,   synced:4, conv:0},
-  {id:3,name:"Imóveis Balneário Camboriú", status:"Ativo",  budget:400, spent:312,  leads:9, cpl:34.7,roas:0,   synced:9, conv:1},
-  {id:4,name:"Dr. Augusto — Joelho",       status:"Pausada",budget:100, spent:0,    leads:0, cpl:0,   roas:0,   synced:0, conv:0},
-  {id:5,name:"Luana — Curso Bolo",         status:"Ativo",  budget:50,  spent:43,   leads:6, cpl:7.2, roas:0.9, synced:5, conv:0},
+  {id:1,name:"Volta às Aulas 2026 — Beway",status:"Ativo",  budget:310,spent:287,leads:18,cpl:15.9,roas:2.84,synced:16,conv:3},
+  {id:2,name:"Partners B2B — VipVidros",   status:"Ativo",  budget:150,spent:98, leads:4, cpl:24.5,roas:0,   synced:4, conv:0},
+  {id:3,name:"Imóveis Balneário Camboriú", status:"Ativo",  budget:400,spent:312,leads:9, cpl:34.7,roas:0,   synced:9, conv:1},
+  {id:4,name:"Dr. Augusto — Joelho",       status:"Pausada",budget:100,spent:0,  leads:0, cpl:0,   roas:0,   synced:0, conv:0},
+  {id:5,name:"Luana — Curso Bolo",         status:"Ativo",  budget:50, spent:43, leads:6, cpl:7.2, roas:0.9, synced:5, conv:0},
 ];
 
 const ADS_DAILY = [
@@ -61,110 +51,92 @@ const ADS_DAILY = [
   {d:"17/03",leads:14,spend:210},
 ];
 
-// ─── AUTOMATIONS DATA ──────────────────────────────────────────────
 const INIT_AUTOS = [
   {id:1,name:"Follow-up automático — 3 dias sem resposta",active:true,
    trigger:{type:"sem_atividade",days:3,stage:"Proposta"},
-   actions:[{type:"criar_tarefa",label:"Criar tarefa de follow-up urgente"},
-            {type:"notificar",   label:"Notificar responsável pelo Slack"}]},
+   actions:[{type:"criar_tarefa",label:"Criar tarefa de follow-up urgente"},{type:"notificar",label:"Notificar responsável pelo Slack"}]},
   {id:2,name:"Boas-vindas WhatsApp — Novo Lead Meta Ads",active:true,
    trigger:{type:"novo_lead",source:"Meta Ads"},
-   actions:[{type:"whatsapp",label:"Enviar mensagem de boas-vindas via WhatsApp"},
-            {type:"score",    label:"Aplicar score inicial: 50 pontos"}]},
+   actions:[{type:"whatsapp",label:"Enviar mensagem de boas-vindas via WhatsApp"},{type:"score",label:"Aplicar score inicial: 50 pontos"}]},
   {id:3,name:"Alerta VIP — Lead score acima de 85",active:false,
    trigger:{type:"score_threshold",value:85},
-   actions:[{type:"notificar",label:"Notificar gerente imediatamente"},
-            {type:"tag",       label:"Adicionar tag 'VIP'"},
-            {type:"assignee",  label:"Reatribuir para vendedor sênior"}]},
+   actions:[{type:"notificar",label:"Notificar gerente imediatamente"},{type:"tag",label:"Adicionar tag VIP"},{type:"assignee",label:"Reatribuir para vendedor sênior"}]},
   {id:4,name:"Reativação — 7 dias em Qualificado sem avançar",active:true,
    trigger:{type:"sem_avanco",days:7,stage:"Qualificado"},
-   actions:[{type:"whatsapp",label:"Enviar mensagem de reativação personalizada"},
-            {type:"criar_tarefa",label:"Criar tarefa: ligar para requalificar"}]},
+   actions:[{type:"whatsapp",label:"Enviar mensagem de reativação personalizada"},{type:"criar_tarefa",label:"Criar tarefa: ligar para requalificar"}]},
 ];
 
 const TRIGGER_LABELS = {
   novo_lead:"Novo lead criado",sem_atividade:"Sem atividade por",
   score_threshold:"Score atingir",sem_avanco:"Sem avanço no funil por",
 };
-const ACTION_COLORS = {
-  whatsapp:C.green,criar_tarefa:C.blue,notificar:C.amber,
-  score:C.purple,tag:C.slate,assignee:"#f97316",
-};
-const ACTION_ICONS  = {
-  whatsapp:"💬",criar_tarefa:"✓",notificar:"🔔",score:"◉",tag:"🏷",assignee:"👤",
-};
+const ACTION_COLORS = {whatsapp:C.green,criar_tarefa:C.blue,notificar:C.amber,score:C.purple,tag:C.slate,assignee:"#f97316"};
+const ACTION_ICONS  = {whatsapp:"💬",criar_tarefa:"✓",notificar:"🔔",score:"◉",tag:"🏷",assignee:"👤"};
 
-// ─── WHATSAPP DATA ─────────────────────────────────────────────────
 const INIT_CONVOS = [
-  {id:1,lead:"Fernanda Lima",   phone:"(11) 98765-4321",avatar:"FL",color:"#10b981",unread:0,last:"Perfeito! Vou confirmar com o financeiro ainda hoje.",time:"14:32",
+  {id:1,lead:"Fernanda Lima",phone:"(11) 98765-4321",avatar:"FL",color:"#10b981",unread:0,last:"Perfeito! Vou confirmar com o financeiro ainda hoje.",time:"14:32",
    messages:[
     {from:"me",  text:"Olá Fernanda! Tudo bem? Passando para confirmar nossa proposta de R$28.000. Você teve tempo de avaliar?",time:"10:15"},
     {from:"lead",text:"Sim! Gostei muito do material. Só preciso aprovar com o financeiro.",time:"10:48"},
     {from:"me",  text:"Claro, sem problema. Posso te enviar um resumo executivo para facilitar a apresentação interna?",time:"11:02"},
     {from:"lead",text:"Perfeito! Vou confirmar com o financeiro ainda hoje.",time:"14:32"},
   ]},
-  {id:2,lead:"Carlos Mendes",   phone:"(47) 99123-4567",avatar:"CM",color:"#3b82f6",unread:2,last:"Pode ser na sexta às 14h?",time:"09:18",
+  {id:2,lead:"Carlos Mendes",phone:"(47) 99123-4567",avatar:"CM",color:"#3b82f6",unread:2,last:"Pode ser na sexta às 14h?",time:"09:18",
    messages:[
     {from:"me",  text:"Carlos, bom dia! Sua proposta está pronta. Posso te chamar para uma call de 20min?",time:"08:45"},
     {from:"lead",text:"Bom dia! Sim, pode chamar.",time:"09:12"},
     {from:"lead",text:"Pode ser na sexta às 14h?",time:"09:18"},
   ]},
-  {id:3,lead:"Amanda Vieira",   phone:"(51) 99876-1234",avatar:"AV",color:"#f59e0b",unread:0,last:"Vejo você quinta então 👍",time:"Ontem",
+  {id:3,lead:"Amanda Vieira",phone:"(51) 99876-1234",avatar:"AV",color:"#f59e0b",unread:0,last:"Vejo você quinta então 👍",time:"Ontem",
    messages:[
     {from:"lead",text:"Oi! Só confirmando a call de quinta às 15h.",time:"16:20"},
     {from:"me",  text:"Confirmado! Te envio o link do meet em breve.",time:"16:35"},
     {from:"lead",text:"Vejo você quinta então 👍",time:"16:36"},
   ]},
-  {id:4,lead:"Lucas Ferreira",  phone:"(21) 98123-9876",avatar:"LF",color:"#8b5cf6",unread:1,last:"Olá! Gostaria de saber mais sobre os planos.",time:"08:02",
-   messages:[
-    {from:"lead",text:"Olá! Gostaria de saber mais sobre os planos.",time:"08:02"},
-  ]},
+  {id:4,lead:"Lucas Ferreira",phone:"(21) 98123-9876",avatar:"LF",color:"#8b5cf6",unread:1,last:"Olá! Gostaria de saber mais sobre os planos.",time:"08:02",
+   messages:[{from:"lead",text:"Olá! Gostaria de saber mais sobre os planos.",time:"08:02"}]},
 ];
 
-// ─── NAV ───────────────────────────────────────────────────────────
 const NAV = [
-  {id:"dashboard",  label:"Dashboard",   icon:"⊞"},
-  {id:"pipeline",   label:"Pipeline",    icon:"⋮⋮"},
-  {id:"leads",      label:"Leads",       icon:"◉"},
-  {id:"tasks",      label:"Tarefas",     icon:"✓"},
-  {id:"whatsapp",   label:"WhatsApp",    icon:"💬"},
-  {id:"automations",label:"Automações",  icon:"⚡"},
-  {id:"metaads",    label:"Meta Ads",    icon:"↗"},
-  {id:"reports",    label:"Relatórios",  icon:"📊"},
+  {id:"dashboard",  label:"Dashboard",    icon:"⊞"},
+  {id:"pipeline",   label:"Pipeline",     icon:"⋮⋮"},
+  {id:"leads",      label:"Leads",        icon:"◉"},
+  {id:"tasks",      label:"Tarefas",      icon:"✓"},
+  {id:"whatsapp",   label:"WhatsApp",     icon:"💬"},
+  {id:"automations",label:"Automações",   icon:"⚡"},
+  {id:"metaads",    label:"Meta Ads",     icon:"↗"},
+  {id:"reports",    label:"Relatórios",   icon:"📊"},
   {id:"settings",   label:"Configurações",icon:"⚙"},
 ];
+
+const WS_COLORS = ["#10b981","#3b82f6","#f59e0b","#8b5cf6","#ef4444","#f97316"];
 
 // ══════════════════════════════════════════════════════════════════
 //   AUTH SCREEN
 // ══════════════════════════════════════════════════════════════════
 function AuthScreen({onLogin}) {
-  const [mode,setMode]   = useState("login");
-  const [form,setForm]   = useState({email:"demo@crmpro.com",pass:"demo123",name:"",company:""});
+  const [mode,setMode]     = useState("login");
+  const [form,setForm]     = useState({email:"",pass:"",name:"",company:""});
   const [loading,setLoading] = useState(false);
-  const [error,setError] = useState("");
+  const [error,setError]   = useState("");
   const up = k => v => setForm(p=>({...p,[k]:v}));
 
   const submit = async () => {
-    setLoading(true);
-    setError("");
+    setLoading(true); setError("");
     try {
       const API = import.meta.env.VITE_API_URL || "";
-      const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
-      const body = mode === "login"
-        ? { email: form.email, password: form.pass }
-        : { name: form.name, email: form.email, password: form.pass, company: form.company };
-      const r = await fetch(API + endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+      const endpoint = mode==="login" ? "/api/auth/login" : "/api/auth/register";
+      const body = mode==="login"
+        ? {email:form.email, password:form.pass}
+        : {name:form.name, email:form.email, password:form.pass, company:form.company};
+      const r = await fetch(API+endpoint, {
+        method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)
       });
       const d = await r.json();
-      if (!r.ok) throw new Error(d.error || "Erro ao autenticar");
+      if(!r.ok) throw new Error(d.error||"Erro ao autenticar");
       localStorage.setItem("crm_token", d.token);
-      onLogin({ name: d.user.name, email: d.user.email });
-    } catch (err) {
-      setError(err.message);
-    }
+      onLogin({name:d.user.name, email:d.user.email}, d.workspaces||[]);
+    } catch(err) { setError(err.message); }
     setLoading(false);
   };
 
@@ -176,7 +148,6 @@ function AuthScreen({onLogin}) {
           <div style={{color:"white",fontSize:24,fontWeight:700,letterSpacing:"-0.5px"}}>CRM Pro</div>
           <div style={{color:C.muted,fontSize:13,marginTop:4}}>Gestão inteligente de vendas</div>
         </div>
-
         <div style={{background:"white",borderRadius:16,padding:28}}>
           <div style={{display:"flex",background:C.light,borderRadius:8,padding:3,marginBottom:22}}>
             {["login","register"].map(m=>(
@@ -188,7 +159,6 @@ function AuthScreen({onLogin}) {
               </button>
             ))}
           </div>
-
           {mode==="register"&&(
             <>
               <Field label="Seu nome" value={form.name} onChange={up("name")} placeholder="João Silva"/>
@@ -197,30 +167,21 @@ function AuthScreen({onLogin}) {
           )}
           <Field label="E-mail" value={form.email} onChange={up("email")} placeholder="joao@empresa.com"/>
           <Field label="Senha" value={form.pass} onChange={up("pass")} type="password" placeholder="••••••••"/>
-
           {mode==="login"&&(
             <div style={{textAlign:"right",marginBottom:16}}>
               <span style={{fontSize:12,color:C.blue,cursor:"pointer"}}>Esqueci a senha</span>
             </div>
           )}
-
           {error&&(
-            <div style={{background:"#fef2f2",color:"#b91c1c",borderRadius:8,padding:"10px 12px",fontSize:13,marginBottom:12}}>
+            <div style={{background:C.redBg,color:C.redTx,borderRadius:8,padding:"10px 12px",fontSize:13,marginBottom:12}}>
               {error}
             </div>
           )}
-
           <button onClick={submit} disabled={loading}
             style={{width:"100%",background:C.green,color:"white",border:"none",borderRadius:8,padding:"11px",
               fontSize:14,fontWeight:600,cursor:"pointer",opacity:loading?0.7:1}}>
-            {loading?"Entrando...":(mode==="login"?"Entrar na conta":"Criar conta grátis")}
+            {loading?"Aguarde...":(mode==="login"?"Entrar na conta":"Criar conta grátis")}
           </button>
-
-          {mode==="login"&&(
-            <div style={{marginTop:14,padding:"12px",background:C.light,borderRadius:8,fontSize:12,color:C.slate,textAlign:"center"}}>
-              Demo: <strong>demo@crmpro.com</strong> / <strong>demo123</strong>
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -241,7 +202,7 @@ function Field({label,value,onChange,type="text",placeholder}) {
 // ══════════════════════════════════════════════════════════════════
 //   WORKSPACE SELECTOR
 // ══════════════════════════════════════════════════════════════════
-function WorkspaceSelector({user,onSelect}) {
+function WorkspaceSelector({user, workspaces, onSelect}) {
   return(
     <div style={{minHeight:"100vh",background:C.light,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
       <div style={{width:"100%",maxWidth:440}}>
@@ -251,17 +212,17 @@ function WorkspaceSelector({user,onSelect}) {
           <div style={{fontSize:13,color:C.slate,marginTop:4}}>Selecione o workspace para acessar</div>
         </div>
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          {WORKSPACES.map(ws=>(
-            <div key={ws.id} onClick={()=>onSelect(ws)}
+          {workspaces.map((ws,i)=>(
+            <div key={ws.id||i} onClick={()=>onSelect(ws)}
               style={{...card,cursor:"pointer",display:"flex",alignItems:"center",gap:14,padding:16,transition:"transform 0.1s"}}
               onMouseOver={e=>e.currentTarget.style.transform="translateY(-1px)"}
               onMouseOut={e=>e.currentTarget.style.transform="none"}>
-              <div style={{width:42,height:42,borderRadius:10,background:ws.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:700,color:"white",flexShrink:0}}>
+              <div style={{width:42,height:42,borderRadius:10,background:ws.color||WS_COLORS[i%WS_COLORS.length],display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:700,color:"white",flexShrink:0}}>
                 {ws.name[0]}
               </div>
               <div style={{flex:1}}>
                 <div style={{fontWeight:600,color:C.text,fontSize:14}}>{ws.name}</div>
-                <div style={{fontSize:12,color:C.slate,marginTop:2}}>Plano {ws.plan} · Acesso: {ws.role}</div>
+                <div style={{fontSize:12,color:C.slate,marginTop:2}}>Plano {ws.plan||"Starter"} · Acesso: {ws.role||"Admin"}</div>
               </div>
               <span style={{color:C.slate,fontSize:18}}>›</span>
             </div>
@@ -282,10 +243,11 @@ function WorkspaceSelector({user,onSelect}) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-//   MAIN CRM APP
+//   MAIN CRM
 // ══════════════════════════════════════════════════════════════════
 export default function CRMPro() {
   const [authUser,  setAuthUser]  = useState(null);
+  const [wsList,    setWsList]    = useState([]);
   const [workspace, setWorkspace] = useState(null);
   const [tab,       setTab]       = useState("dashboard");
   const [leads,     setLeads]     = useState(INIT_LEADS);
@@ -294,18 +256,31 @@ export default function CRMPro() {
   const [selLead,   setSelLead]   = useState(null);
   const [aiData,    setAiData]    = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
-  const [wsSel,     setWsSel]     = useState(false);
   const [tasks,     setTasks]     = useState([
-    {id:1,title:"Ligar Fernanda Lima — contraproposta",lead:"Fernanda Lima",type:"Ligação",due:"Hoje",pri:"Alta",done:false},
-    {id:2,title:"Enviar contrato Amanda Vieira",       lead:"Amanda Vieira",type:"E-mail",  due:"Hoje",pri:"Alta",done:false},
-    {id:3,title:"Follow-up Carlos Mendes",             lead:"Carlos Mendes",type:"Follow-up",due:"Hoje",pri:"Média",done:true},
-    {id:4,title:"Agendar demo — Lucas Ferreira",       lead:"Lucas Ferreira",type:"Reunião",due:"Amanhã",pri:"Média",done:false},
-    {id:5,title:"Reativação urgente: Beatriz Gomes",   lead:"Beatriz Gomes",type:"Follow-up",due:"Atrasado",pri:"Alta",done:false},
-    {id:6,title:"Qualificação: Mariana Torres",        lead:"Mariana Torres",type:"Ligação",due:"Atrasado",pri:"Alta",done:false},
+    {id:1,title:"Ligar Fernanda Lima — contraproposta",lead:"Fernanda Lima",type:"Ligação",  due:"Hoje",    pri:"Alta", done:false},
+    {id:2,title:"Enviar contrato Amanda Vieira",       lead:"Amanda Vieira", type:"E-mail",   due:"Hoje",    pri:"Alta", done:false},
+    {id:3,title:"Follow-up Carlos Mendes",             lead:"Carlos Mendes", type:"Follow-up",due:"Hoje",    pri:"Média",done:true},
+    {id:4,title:"Agendar demo — Lucas Ferreira",       lead:"Lucas Ferreira",type:"Reunião",  due:"Amanhã",  pri:"Média",done:false},
+    {id:5,title:"Reativação urgente: Beatriz Gomes",   lead:"Beatriz Gomes", type:"Follow-up",due:"Atrasado",pri:"Alta", done:false},
+    {id:6,title:"Qualificação: Mariana Torres",        lead:"Mariana Torres",type:"Ligação",  due:"Atrasado",pri:"Alta", done:false},
   ]);
 
-  if(!authUser) return <AuthScreen onLogin={u=>{setAuthUser(u);}}/>;
-  if(!workspace) return <WorkspaceSelector user={authUser} onSelect={setWorkspace}/>;
+  const handleLogin = (user, workspaces) => {
+    setAuthUser(user);
+    if(workspaces && workspaces.length > 0) {
+      const mapped = workspaces.map((w,i) => ({
+        id:    w.workspace?.id   || w.id,
+        name:  w.workspace?.name || w.name,
+        plan:  w.workspace?.plan || w.plan || "Starter",
+        role:  w.role || "Admin",
+        color: WS_COLORS[i % WS_COLORS.length],
+      }));
+      setWsList(mapped);
+    }
+  };
+
+  if(!authUser) return <AuthScreen onLogin={handleLogin}/>;
+  if(!workspace) return <WorkspaceSelector user={authUser} workspaces={wsList} onSelect={setWorkspace}/>;
 
   const overdue  = tasks.filter(t=>t.due==="Atrasado"&&!t.done).length;
   const unreadWA = convos.reduce((a,c)=>a+c.unread,0);
@@ -315,7 +290,7 @@ export default function CRMPro() {
     setAiData(null); setAiLoading(true);
     try {
       const r = await fetch("https://api.anthropic.com/v1/messages",{
-        method:"POST", headers:{"Content-Type":"application/json"},
+        method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:900,
           messages:[{role:"user",content:`Especialista em vendas B2B. Analise e retorne SOMENTE JSON válido.
 Lead: ${lead.name} | ${lead.company} | Stage: ${lead.stage} | Valor: R$${lead.value.toLocaleString()} | Score: ${lead.score}
@@ -331,17 +306,17 @@ Fonte: ${lead.source} | Notas: ${lead.notes}
 
   // ── DASHBOARD ────────────────────────────────────────────────────
   const Dashboard = () => {
-    const rev = [{mes:"Out",v:38},{mes:"Nov",v:52},{mes:"Dez",v:41},{mes:"Jan",v:65},{mes:"Fev",v:58},{mes:"Mar",v:74}];
+    const rev=[{mes:"Out",v:38},{mes:"Nov",v:52},{mes:"Dez",v:41},{mes:"Jan",v:65},{mes:"Fev",v:58},{mes:"Mar",v:74}];
     return(
       <Pg title="Dashboard" sub="Visão geral — Março 2026">
         <Grid cols={4} gap={12} mb={18}>
           {[
-            {l:"Pipeline",   v:`R$${(pipeVal/1000).toFixed(0)}K`,  s:`${leads.filter(l=>l.stage!=="Fechado").length} deals`,       c:C.purple},
-            {l:"Fechado",    v:"R$ 45K",                            s:"taxa conversão 22%",                                         c:C.green},
-            {l:"Tarefas",    v:tasks.filter(t=>!t.done).length,     s:`${overdue} atrasadas`,                                       c:overdue>0?C.red:C.amber},
-            {l:"WhatsApp",   v:unreadWA,                            s:"msg não lidas",                                              c:unreadWA>0?C.blue:C.slate},
+            {l:"Pipeline",  v:`R$${(pipeVal/1000).toFixed(0)}K`,s:`${leads.filter(l=>l.stage!=="Fechado").length} deals`,c:C.purple},
+            {l:"Fechado",   v:"R$ 45K",                          s:"taxa conversão 22%",                                  c:C.green},
+            {l:"Tarefas",   v:tasks.filter(t=>!t.done).length,   s:`${overdue} atrasadas`,                                c:overdue>0?C.red:C.amber},
+            {l:"WhatsApp",  v:unreadWA,                          s:"msg não lidas",                                       c:unreadWA>0?C.blue:C.slate},
           ].map((k,i)=>(
-            <div key={i} style={{...card}}>
+            <div key={i} style={card}>
               <div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>{k.l}</div>
               <div style={{fontSize:26,fontWeight:700,color:k.c,margin:"4px 0"}}>{k.v}</div>
               <div style={{fontSize:12,color:C.slate}}>{k.s}</div>
@@ -451,9 +426,7 @@ Fonte: ${lead.source} | Notas: ${lead.notes}
                       <td style={{padding:"10px 14px"}}>{badge(lead.stage,cfg.c,cfg.bg,cfg.tx,true)}</td>
                       <td style={{padding:"10px 14px",fontWeight:600,color:C.green,whiteSpace:"nowrap"}}>{fmt(lead.value)}</td>
                       <td style={{padding:"10px 14px"}}><ScoreBadge s={lead.score}/></td>
-                      <td style={{padding:"10px 14px"}}>
-                        <span style={{fontSize:14}}>{lead.wa==="connected"?"🟢":lead.wa==="pending"?"🟡":"⚪"}</span>
-                      </td>
+                      <td style={{padding:"10px 14px"}}><span style={{fontSize:14}}>{lead.wa==="connected"?"🟢":lead.wa==="pending"?"🟡":"⚪"}</span></td>
                       <td style={{padding:"10px 14px",color:C.slate,whiteSpace:"nowrap"}}>{lead.source}</td>
                       <td style={{padding:"10px 14px"}}>
                         <button onClick={e=>{e.stopPropagation();setSelLead(lead);analyzeAI(lead);}}
@@ -474,7 +447,7 @@ Fonte: ${lead.source} | Notas: ${lead.notes}
   const TasksPage = () => {
     const DUE_ORDER=["Atrasado","Hoje","Amanhã","Esta semana"];
     const DC={"Hoje":{bg:"#f1f5f9",tx:C.text},"Amanhã":{bg:C.blueBg,tx:C.blueTx},"Esta semana":{bg:C.greenBg,tx:C.greenTx},"Atrasado":{bg:C.redBg,tx:C.redTx}};
-    const TC={Ligação:C.blue,  "E-mail":C.purple, Reunião:C.green, "Follow-up":C.amber, Tarefa:C.slate};
+    const TC={Ligação:C.blue,"E-mail":C.purple,Reunião:C.green,"Follow-up":C.amber,Tarefa:C.slate};
     return(
       <Pg title="Tarefas" sub={`${tasks.filter(t=>!t.done).length} pendentes · ${overdue} atrasadas`}>
         {DUE_ORDER.map(due=>{
@@ -507,18 +480,18 @@ Fonte: ${lead.source} | Notas: ${lead.notes}
 
   // ── WHATSAPP ──────────────────────────────────────────────────────
   const WhatsApp = () => {
-    const [sel,setSel]   = useState(convos[0]);
-    const [msg,setMsg]   = useState("");
+    const [sel,setSel]       = useState(convos[0]);
+    const [msg,setMsg]       = useState("");
     const [aiSug,setAiSug]   = useState(null);
     const [aiSugL,setAiSugL] = useState(false);
     const endRef = useRef(null);
-
     useEffect(()=>{ endRef.current?.scrollIntoView({behavior:"smooth"}); },[sel]);
 
     const send = () => {
       if(!msg.trim())return;
-      setConvos(prev=>prev.map(c=>c.id===sel.id?{...c,messages:[...c.messages,{from:"me",text:msg,time:new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}],last:msg,unread:0}:c));
-      setSel(prev=>({...prev,messages:[...prev.messages,{from:"me",text:msg,time:new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}]}));
+      const newMsg={from:"me",text:msg,time:new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})};
+      setConvos(prev=>prev.map(c=>c.id===sel.id?{...c,messages:[...c.messages,newMsg],last:msg,unread:0}:c));
+      setSel(prev=>({...prev,messages:[...prev.messages,newMsg]}));
       setMsg("");
     };
 
@@ -539,7 +512,6 @@ Fonte: ${lead.source} | Notas: ${lead.notes}
     return(
       <Pg title="WhatsApp" sub={`${unreadWA} mensagens não lidas · ${convos.length} conversas`}>
         <div style={{...card,padding:0,overflow:"hidden",display:"flex",height:520}}>
-          {/* Sidebar */}
           <div style={{width:240,borderRight:`1px solid ${C.border}`,overflowY:"auto",flexShrink:0}}>
             <div style={{padding:"12px 14px",borderBottom:`1px solid ${C.border}`,fontSize:12,fontWeight:700,color:C.text}}>Conversas</div>
             {convos.map(c=>(
@@ -555,13 +527,12 @@ Fonte: ${lead.source} | Notas: ${lead.notes}
               </div>
             ))}
           </div>
-          {/* Chat */}
           <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0}}>
             <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:10}}>
               <div style={{width:34,height:34,borderRadius:"50%",background:sel?.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"white"}}>{sel?.avatar}</div>
               <div><div style={{fontSize:13,fontWeight:600,color:C.text}}>{sel?.lead}</div>
               <div style={{fontSize:11,color:C.muted}}>{sel?.phone}</div></div>
-              <div style={{marginLeft:"auto",display:"flex",gap:8}}>
+              <div style={{marginLeft:"auto"}}>
                 <button onClick={suggestReply} disabled={aiSugL}
                   style={{background:C.blueBg,color:C.blue,border:"none",borderRadius:6,padding:"5px 10px",cursor:"pointer",fontSize:11,fontWeight:600}}>
                   {aiSugL?"...":"✦ Sugerir resposta"}
@@ -605,9 +576,9 @@ Fonte: ${lead.source} | Notas: ${lead.notes}
 
   // ── AUTOMATIONS ───────────────────────────────────────────────────
   const Automations = () => {
-    const [sel,setSel]   = useState(null);
+    const [sel,setSel]       = useState(null);
     const [aiAuto,setAiAuto] = useState(null);
-    const [aiL,setAiL]   = useState(false);
+    const [aiL,setAiL]       = useState(false);
 
     const genAuto = async () => {
       setAiL(true); setAiAuto(null);
@@ -630,7 +601,6 @@ Fonte: ${lead.source} | Notas: ${lead.notes}
             {aiL?"Gerando...":"✦ Gerar com IA"}
           </button>
         </Row>
-
         {aiAuto&&!aiAuto.error&&(
           <div style={{...card,marginBottom:16,border:`1.5px solid ${C.purple}`,background:C.purpleBg}}>
             <Row mb={8}><span style={{fontSize:13,fontWeight:700,color:C.purpleTx}}>✦ Sugestão da IA</span>
@@ -643,17 +613,13 @@ Fonte: ${lead.source} | Notas: ${lead.notes}
             {aiAuto.justificativa&&<div style={{fontSize:12,color:C.purpleTx,marginTop:8,fontStyle:"italic"}}>{aiAuto.justificativa}</div>}
           </div>
         )}
-
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           {autos.map(a=>(
-            <div key={a.id} style={{...card,cursor:"pointer",opacity:a.active?1:0.65}}
-              onClick={()=>setSel(sel?.id===a.id?null:a)}>
+            <div key={a.id} style={{...card,cursor:"pointer",opacity:a.active?1:0.65}} onClick={()=>setSel(sel?.id===a.id?null:a)}>
               <Row mb={8}>
                 <div style={{flex:1}}>
                   <div style={{fontSize:14,fontWeight:600,color:C.text,marginBottom:2}}>{a.name}</div>
-                  <div style={{fontSize:12,color:C.slate}}>
-                    {TRIGGER_LABELS[a.trigger.type]}{a.trigger.days?` ${a.trigger.days} dias`:""}{a.trigger.stage?` — ${a.trigger.stage}`:""}
-                  </div>
+                  <div style={{fontSize:12,color:C.slate}}>{TRIGGER_LABELS[a.trigger.type]}{a.trigger.days?` ${a.trigger.days} dias`:""}{a.trigger.stage?` — ${a.trigger.stage}`:""}</div>
                 </div>
                 <Toggle active={a.active} onToggle={()=>setAutos(p=>p.map(x=>x.id===a.id?{...x,active:!x.active}:x))}/>
               </Row>
@@ -664,8 +630,7 @@ Fonte: ${lead.source} | Notas: ${lead.notes}
                     {a.actions.map((act,i)=>(
                       <div key={i} style={{display:"flex",alignItems:"center",gap:6}}>
                         {i>0&&<div style={{width:20,height:1,background:C.border}}/>}
-                        <div style={{background:(ACTION_COLORS[act.type]||C.slate)+"18",border:`1px solid ${(ACTION_COLORS[act.type]||C.slate)}40`,
-                          borderRadius:8,padding:"7px 12px",fontSize:12,color:ACTION_COLORS[act.type]||C.slate,fontWeight:500}}>
+                        <div style={{background:(ACTION_COLORS[act.type]||C.slate)+"18",border:`1px solid ${(ACTION_COLORS[act.type]||C.slate)}40`,borderRadius:8,padding:"7px 12px",fontSize:12,color:ACTION_COLORS[act.type]||C.slate,fontWeight:500}}>
                           {ACTION_ICONS[act.type]} {act.label}
                         </div>
                       </div>
@@ -687,16 +652,17 @@ Fonte: ${lead.source} | Notas: ${lead.notes}
       <Pg title="Meta Ads" sub="Campanhas integradas · Sincronização automática de leads">
         <Grid cols={3} gap={12} mb={18}>
           {[
-            {l:"Leads Capturados",v:total.leads,   s:"Últimos 7 dias",   c:C.blue},
-            {l:"Investimento",    v:`R$ ${total.spent}`,s:"Última semana",c:C.amber},
-            {l:"Leads Sincronizados",v:total.synced,s:"No CRM automaticamente",c:C.green},
+            {l:"Leads Capturados",   v:total.leads,        s:"Últimos 7 dias",       c:C.blue},
+            {l:"Investimento",       v:`R$ ${total.spent}`,s:"Última semana",         c:C.amber},
+            {l:"Leads Sincronizados",v:total.synced,       s:"No CRM automaticamente",c:C.green},
           ].map((k,i)=>(
-            <div key={i} style={card}><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>{k.l}</div>
-            <div style={{fontSize:24,fontWeight:700,color:k.c,margin:"4px 0"}}>{k.v}</div>
-            <div style={{fontSize:12,color:C.slate}}>{k.s}</div></div>
+            <div key={i} style={card}>
+              <div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>{k.l}</div>
+              <div style={{fontSize:24,fontWeight:700,color:k.c,margin:"4px 0"}}>{k.v}</div>
+              <div style={{fontSize:12,color:C.slate}}>{k.s}</div>
+            </div>
           ))}
         </Grid>
-
         <div style={{...card,marginBottom:16}}>
           <STitle>Leads por dia (últimos 7 dias)</STitle>
           <ResponsiveContainer width="100%" height={160}>
@@ -706,7 +672,6 @@ Fonte: ${lead.source} | Notas: ${lead.notes}
             <Line type="monotone" dataKey="leads" stroke={C.blue} strokeWidth={2} dot={{fill:C.blue,r:3}} name="Leads"/></LineChart>
           </ResponsiveContainer>
         </div>
-
         <div style={card}>
           <STitle>Campanhas Ativas</STitle>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,marginTop:10}}>
@@ -725,11 +690,7 @@ Fonte: ${lead.source} | Notas: ${lead.notes}
                   <td style={{padding:"10px 12px",fontWeight:700,color:C.blue}}>{c.leads}</td>
                   <td style={{padding:"10px 12px",color:C.text}}>R$ {c.cpl>0?c.cpl.toFixed(2):"—"}</td>
                   <td style={{padding:"10px 12px",fontWeight:600,color:c.roas>2?C.green:c.roas>0?C.amber:C.muted}}>{c.roas>0?`${c.roas}×`:"—"}</td>
-                  <td style={{padding:"10px 12px"}}>
-                    <span style={{background:C.greenBg,color:C.greenTx,borderRadius:20,padding:"2px 8px",fontSize:11,fontWeight:600}}>
-                      {c.synced}/{c.leads} ✓
-                    </span>
-                  </td>
+                  <td style={{padding:"10px 12px"}}><span style={{background:C.greenBg,color:C.greenTx,borderRadius:20,padding:"2px 8px",fontSize:11,fontWeight:600}}>{c.synced}/{c.leads} ✓</span></td>
                 </tr>
               ))}
             </tbody>
@@ -786,11 +747,13 @@ Fonte: ${lead.source} | Notas: ${lead.notes}
             })}
           </div>
           <div style={card}><STitle>KPIs Principais</STitle>
-            {[{l:"Taxa de conversão",v:"22%",ok:true},{l:"Ticket médio",v:"R$ 17,9K",ok:true},
-              {l:"Automações ativas",v:autos.filter(a=>a.active).length,ok:true},
-              {l:"Leads Meta Ads",v:ADS_CAMPAIGNS.reduce((a,c)=>a+c.leads,0),ok:true},
-              {l:"Score médio",v:`${Math.round(leads.reduce((a,l)=>a+l.score,0)/leads.length)}/100`,ok:true},
-              {l:"Tarefas atrasadas",v:overdue,ok:overdue===0},
+            {[
+              {l:"Taxa de conversão",  v:"22%",                                                           ok:true},
+              {l:"Ticket médio",       v:"R$ 17,9K",                                                      ok:true},
+              {l:"Automações ativas",  v:autos.filter(a=>a.active).length,                                ok:true},
+              {l:"Leads Meta Ads",     v:ADS_CAMPAIGNS.reduce((a,c)=>a+c.leads,0),                       ok:true},
+              {l:"Score médio",        v:`${Math.round(leads.reduce((a,l)=>a+l.score,0)/leads.length)}/100`,ok:true},
+              {l:"Tarefas atrasadas",  v:overdue,                                                          ok:overdue===0},
             ].map((k,i)=>(
               <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:i<5?`1px solid ${C.light}`:"none"}}>
                 <span style={{fontSize:13,color:C.text}}>{k.l}</span>
@@ -806,9 +769,9 @@ Fonte: ${lead.source} | Notas: ${lead.notes}
   // ── SETTINGS ─────────────────────────────────────────────────────
   const Settings = () => {
     const members=[
-      {name:"Ana Silva",   email:"ana@empresa.com",  role:"Admin",   avatar:"AS",c:C.green},
-      {name:"Pedro Costa", email:"pedro@empresa.com",role:"Gestor",  avatar:"PC",c:C.blue},
-      {name:"Lara Mendes", email:"lara@empresa.com", role:"Vendedor",avatar:"LM",c:C.amber},
+      {name:"Ana Silva",  email:"ana@empresa.com",  role:"Admin",  avatar:"AS",c:C.green},
+      {name:"Pedro Costa",email:"pedro@empresa.com",role:"Gestor", avatar:"PC",c:C.blue},
+      {name:"Lara Mendes",email:"lara@empresa.com", role:"Vendedor",avatar:"LM",c:C.amber},
     ];
     return(
       <Pg title="Configurações" sub="Workspace e integrações">
@@ -817,8 +780,8 @@ Fonte: ${lead.source} | Notas: ${lead.notes}
             <STitle>Workspace</STitle>
             <div style={{marginTop:12}}>
               <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
-                <div style={{width:44,height:44,borderRadius:10,background:workspace.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:700,color:"white"}}>{workspace.name[0]}</div>
-                <div><div style={{fontWeight:600,color:C.text}}>{workspace.name}</div><div style={{fontSize:12,color:C.slate}}>Plano {workspace.plan}</div></div>
+                <div style={{width:44,height:44,borderRadius:10,background:workspace.color||C.green,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:700,color:"white"}}>{workspace.name[0]}</div>
+                <div><div style={{fontWeight:600,color:C.text}}>{workspace.name}</div><div style={{fontSize:12,color:C.slate}}>Plano {workspace.plan||"Starter"}</div></div>
               </div>
               {[{l:"Moeda",v:"BRL (R$)"},{l:"Fuso horário",v:"America/Sao_Paulo"},{l:"Idioma",v:"Português (BR)"}].map((f,i)=>(
                 <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${C.light}`,fontSize:13}}>
@@ -833,10 +796,7 @@ Fonte: ${lead.source} | Notas: ${lead.notes}
               {members.map((m,i)=>(
                 <div key={i} style={{display:"flex",alignItems:"center",gap:10}}>
                   <div style={{width:34,height:34,borderRadius:"50%",background:m.c,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"white",flexShrink:0}}>{m.avatar}</div>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:13,fontWeight:500,color:C.text}}>{m.name}</div>
-                    <div style={{fontSize:11,color:C.muted}}>{m.email}</div>
-                  </div>
+                  <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:C.text}}>{m.name}</div><div style={{fontSize:11,color:C.muted}}>{m.email}</div></div>
                   <span style={{background:C.light,color:C.slate,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:500}}>{m.role}</span>
                 </div>
               ))}
@@ -847,17 +807,15 @@ Fonte: ${lead.source} | Notas: ${lead.notes}
             <STitle>Integrações</STitle>
             <div style={{marginTop:12,display:"flex",flexDirection:"column",gap:10}}>
               {[
-                {n:"Meta Ads",    s:"Conectado",    ok:true,  icon:"📢"},
-                {n:"WhatsApp",    s:"Conectado",    ok:true,  icon:"💬"},
-                {n:"Google Ads",  s:"Desconectado", ok:false, icon:"🔍"},
-                {n:"RD Station",  s:"Desconectado", ok:false, icon:"📧"},
-                {n:"Stripe/Pix",  s:"Desconectado", ok:false, icon:"💳"},
+                {n:"Meta Ads",  s:"Conectado",    ok:true, icon:"📢"},
+                {n:"WhatsApp",  s:"Conectado",    ok:true, icon:"💬"},
+                {n:"Google Ads",s:"Desconectado", ok:false,icon:"🔍"},
+                {n:"RD Station",s:"Desconectado", ok:false,icon:"📧"},
+                {n:"Stripe/Pix",s:"Desconectado", ok:false,icon:"💳"},
               ].map((itg,i)=>(
                 <div key={i} style={{display:"flex",alignItems:"center",gap:10}}>
                   <span style={{fontSize:18,width:28}}>{itg.icon}</span>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:13,fontWeight:500,color:C.text}}>{itg.n}</div>
-                  </div>
+                  <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:C.text}}>{itg.n}</div></div>
                   <span style={{background:itg.ok?C.greenBg:C.light,color:itg.ok?C.greenTx:C.slate,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:500}}>{itg.s}</span>
                   {!itg.ok&&<button style={{background:C.blueBg,color:C.blue,border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11,fontWeight:600}}>Conectar</button>}
                 </div>
@@ -870,11 +828,7 @@ Fonte: ${lead.source} | Notas: ${lead.notes}
               <div style={{fontSize:12,color:C.slate,marginBottom:6}}>Chave de API</div>
               <div style={{background:C.dark,borderRadius:8,padding:"10px 12px",fontFamily:"monospace",fontSize:11,color:"#4ade80",letterSpacing:"0.05em",marginBottom:12}}>sk_live_**********************xK9p</div>
               <div style={{fontSize:12,color:C.slate,marginBottom:6}}>Webhook URL</div>
-              <div style={{background:C.light,borderRadius:8,padding:"10px 12px",fontFamily:"monospace",fontSize:11,color:C.text}}>https://seucrm.com/webhook/leads</div>
-              <div style={{marginTop:12,display:"flex",gap:8}}>
-                <button style={{background:C.light,color:C.slate,border:`1px solid ${C.border}`,borderRadius:7,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:500}}>Copiar chave</button>
-                <button style={{background:C.light,color:C.slate,border:`1px solid ${C.border}`,borderRadius:7,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:500}}>Regenerar</button>
-              </div>
+              <div style={{background:C.light,borderRadius:8,padding:"10px 12px",fontFamily:"monospace",fontSize:11,color:C.text}}>https://crm-backend-production-987f.up.railway.app/api/webhooks/meta</div>
             </div>
           </div>
         </Grid>
@@ -891,9 +845,10 @@ Fonte: ${lead.source} | Notas: ${lead.notes}
         onClick={e=>e.target===e.currentTarget&&(setSelLead(null),setAiData(null))}>
         <div style={{width:430,background:"white",height:"100%",overflowY:"auto",boxShadow:"-8px 0 32px rgba(0,0,0,0.12)"}}>
           <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.border}`,position:"sticky",top:0,background:"white",zIndex:1}}>
-            <Row mb={8}><div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:C.text}}>{l.name}</div>
-            <div style={{fontSize:12,color:C.slate,marginTop:2}}>{l.company}</div></div>
-            <button onClick={()=>{setSelLead(null);setAiData(null);}} style={{background:"none",border:"none",cursor:"pointer",color:C.muted,fontSize:20}}>✕</button></Row>
+            <Row mb={8}>
+              <div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:C.text}}>{l.name}</div><div style={{fontSize:12,color:C.slate,marginTop:2}}>{l.company}</div></div>
+              <button onClick={()=>{setSelLead(null);setAiData(null);}} style={{background:"none",border:"none",cursor:"pointer",color:C.muted,fontSize:20}}>✕</button>
+            </Row>
             <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
               {badge(l.stage,cfg.c,cfg.bg,cfg.tx,true)}
               <ScoreBadge s={l.score}/>
@@ -905,16 +860,13 @@ Fonte: ${lead.source} | Notas: ${lead.notes}
           <div style={{padding:"14px 20px",borderBottom:`1px solid ${C.light}`}}>
             <Grid cols={2} gap={10} mb={12}>
               {[{l:"Valor",v:fmt(l.value),c:C.green},{l:"Fonte",v:l.source,c:C.text},{l:"Responsável",v:l.assignee,c:C.text},{l:"Telefone",v:l.phone,c:C.text}].map(x=>(
-                <div key={x.l}><div style={{fontSize:11,color:C.muted,marginBottom:2}}>{x.l}</div>
-                <div style={{fontSize:13,fontWeight:500,color:x.c}}>{x.v}</div></div>
+                <div key={x.l}><div style={{fontSize:11,color:C.muted,marginBottom:2}}>{x.l}</div><div style={{fontSize:13,fontWeight:500,color:x.c}}>{x.v}</div></div>
               ))}
             </Grid>
             <div style={{fontSize:11,color:C.muted,marginBottom:4}}>Notas</div>
             <div style={{fontSize:12,color:"#475569",lineHeight:1.6,background:C.light,borderRadius:8,padding:"10px 12px"}}>{l.notes}</div>
           </div>
-
-          {/* AI */}
-          <div style={{padding:"14px 20px",borderBottom:`1px solid ${C.light}`}}>
+          <div style={{padding:"14px 20px"}}>
             <Row mb={10}>
               <span style={{fontWeight:600,color:C.text,fontSize:13}}>✦ Análise de IA</span>
               <button onClick={()=>analyzeAI(l)} disabled={aiLoading}
@@ -922,9 +874,7 @@ Fonte: ${lead.source} | Notas: ${lead.notes}
                 {aiLoading?"Analisando...":"Gerar análise"}
               </button>
             </Row>
-
             {aiLoading&&<div style={{textAlign:"center",padding:20,color:C.muted,fontSize:13}}>✦ Analisando com IA...</div>}
-
             {aiData&&!aiData.error&&(
               <>
                 <div style={{background:"#f0f9ff",borderRadius:8,padding:12,marginBottom:10}}>
@@ -952,14 +902,13 @@ Fonte: ${lead.source} | Notas: ${lead.notes}
                   <div style={{background:C.greenBg,borderRadius:8,padding:11,marginTop:8}}>
                     <div style={{fontSize:11,fontWeight:600,color:C.greenTx,marginBottom:4}}>💬 Mensagem sugerida para WhatsApp</div>
                     <div style={{fontSize:12,color:C.text,lineHeight:1.6}}>{aiData.whatsapp_msg}</div>
-                    <button onClick={()=>{const c=convos.find(c=>c.lead===l.name);if(c){setTab("whatsapp");}}} style={{marginTop:8,background:C.green,color:"white",border:"none",borderRadius:6,padding:"5px 12px",cursor:"pointer",fontSize:11,fontWeight:600}}>
+                    <button onClick={()=>setTab("whatsapp")} style={{marginTop:8,background:C.green,color:"white",border:"none",borderRadius:6,padding:"5px 12px",cursor:"pointer",fontSize:11,fontWeight:600}}>
                       Abrir WhatsApp
                     </button>
                   </div>
                 )}
               </>
             )}
-
             {!aiLoading&&!aiData&&(
               <div style={{border:`2px dashed ${C.border}`,borderRadius:8,padding:20,textAlign:"center",color:C.muted,fontSize:12}}>
                 Clique em "Gerar análise" para receber recomendações de IA para este lead
@@ -975,24 +924,20 @@ Fonte: ${lead.source} | Notas: ${lead.notes}
   return(
     <div style={{display:"flex",height:"100vh",fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif',background:C.light,overflow:"hidden"}}>
       <div style={{width:200,background:C.dark,display:"flex",flexDirection:"column",flexShrink:0}}>
-        {/* Logo */}
         <div style={{padding:"14px 12px",borderBottom:"1px solid rgba(255,255,255,0.07)"}}>
           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
             <div style={{width:28,height:28,background:C.green,borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,color:"white"}}>C</div>
             <span style={{color:"white",fontWeight:700,fontSize:14}}>CRM Pro</span>
           </div>
-          {/* Workspace switcher */}
           <div onClick={()=>setWorkspace(null)} style={{display:"flex",alignItems:"center",gap:8,background:"rgba(255,255,255,0.06)",borderRadius:7,padding:"6px 8px",cursor:"pointer"}}
             onMouseOver={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"}
             onMouseOut={e=>e.currentTarget.style.background="rgba(255,255,255,0.06)"}>
-            <div style={{width:20,height:20,borderRadius:4,background:workspace.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"white",flexShrink:0}}>{workspace.name[0]}</div>
+            <div style={{width:20,height:20,borderRadius:4,background:workspace.color||C.green,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"white",flexShrink:0}}>{workspace.name[0]}</div>
             <span style={{color:"#94a3b8",fontSize:11,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{workspace.name}</span>
             <span style={{color:"#475569",fontSize:10}}>⇅</span>
           </div>
         </div>
-
-        {/* Nav */}
-        <nav style={{padding:"8px 8px",flex:1,overflowY:"auto"}}>
+        <nav style={{padding:"8px",flex:1,overflowY:"auto"}}>
           {NAV.map(item=>(
             <button key={item.id} onClick={()=>setTab(item.id)}
               style={{width:"100%",display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:7,border:"none",cursor:"pointer",marginBottom:1,
@@ -1005,55 +950,47 @@ Fonte: ${lead.source} | Notas: ${lead.notes}
             </button>
           ))}
         </nav>
-
-        {/* User */}
         <div style={{padding:"12px",borderTop:"1px solid rgba(255,255,255,0.07)"}}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <div style={{width:28,height:28,background:C.green,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"white",flexShrink:0}}>AS</div>
+            <div style={{width:28,height:28,background:C.green,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"white",flexShrink:0}}>
+              {authUser.name.split(" ").map(n=>n[0]).join("").slice(0,2)}
+            </div>
             <div style={{flex:1,minWidth:0}}>
               <div style={{color:"white",fontSize:11,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{authUser.name}</div>
-              <div style={{color:"#475569",fontSize:10,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{workspace.role}</div>
+              <div style={{color:"#475569",fontSize:10}}>{workspace.role||"Admin"}</div>
             </div>
-            <button onClick={()=>{setAuthUser(null);setWorkspace(null);setTab("dashboard");}} style={{background:"none",border:"none",cursor:"pointer",color:"#475569",fontSize:13}}>⏻</button>
+            <button onClick={()=>{setAuthUser(null);setWorkspace(null);setWsList([]);setTab("dashboard");localStorage.removeItem("crm_token");}}
+              style={{background:"none",border:"none",cursor:"pointer",color:"#475569",fontSize:13}}>⏻</button>
           </div>
         </div>
       </div>
-
       <main style={{flex:1,overflow:"auto"}}>
-        {tab==="dashboard"   && <Dashboard/>}
-        {tab==="pipeline"    && <Pipeline/>}
-        {tab==="leads"       && <LeadsTable/>}
-        {tab==="tasks"       && <TasksPage/>}
-        {tab==="whatsapp"    && <WhatsApp/>}
-        {tab==="automations" && <Automations/>}
-        {tab==="metaads"     && <MetaAds/>}
-        {tab==="reports"     && <Reports/>}
-        {tab==="settings"    && <Settings/>}
+        {tab==="dashboard"   &&<Dashboard/>}
+        {tab==="pipeline"    &&<Pipeline/>}
+        {tab==="leads"       &&<LeadsTable/>}
+        {tab==="tasks"       &&<TasksPage/>}
+        {tab==="whatsapp"    &&<WhatsApp/>}
+        {tab==="automations" &&<Automations/>}
+        {tab==="metaads"     &&<MetaAds/>}
+        {tab==="reports"     &&<Reports/>}
+        {tab==="settings"    &&<Settings/>}
       </main>
-
       <LeadDrawer/>
     </div>
   );
 }
 
-// ─── MINI COMPONENTS ──────────────────────────────────────────────
 function Pg({title,sub,children}) {
   return(
     <div style={{padding:24}}>
-      <div style={{marginBottom:18,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div><h1 style={{margin:0,fontSize:19,fontWeight:700,color:"#1e293b"}}>{title}</h1>
-        <p style={{margin:"3px 0 0",fontSize:12,color:"#64748b"}}>{sub}</p></div>
-      </div>
+      <div style={{marginBottom:18}}><h1 style={{margin:0,fontSize:19,fontWeight:700,color:"#1e293b"}}>{title}</h1>
+      <p style={{margin:"3px 0 0",fontSize:12,color:"#64748b"}}>{sub}</p></div>
       {children}
     </div>
   );
 }
-function STitle({children}) {
-  return <div style={{fontWeight:600,color:"#1e293b",fontSize:13,marginBottom:8}}>{children}</div>;
-}
-function Row({children,mb}) {
-  return <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:mb||0}}>{children}</div>;
-}
+function STitle({children}) { return <div style={{fontWeight:600,color:"#1e293b",fontSize:13,marginBottom:8}}>{children}</div>; }
+function Row({children,mb})  { return <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:mb||0}}>{children}</div>; }
 function Grid({cols,gap,mb,children}) {
   return <div style={{display:"grid",gridTemplateColumns:`repeat(${cols},minmax(0,1fr))`,gap,marginBottom:mb||0}}>{children}</div>;
 }
