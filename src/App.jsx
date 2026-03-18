@@ -463,36 +463,6 @@ export default function CRMPro(){
     );
   };
 
-  const NewLeadModal=()=>(
-    <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&setNewLeadModal(false)}>
-      <div style={{background:"white",borderRadius:16,padding:28,width:"100%",maxWidth:440,boxShadow:"0 20px 60px rgba(0,0,0,0.2)"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-          <span style={{fontSize:16,fontWeight:700,color:C.text}}>Novo Lead</span>
-          <button onClick={()=>setNewLeadModal(false)} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,color:C.muted}}>✕</button>
-        </div>
-        {[{l:"Nome *",k:"name",ph:"João Silva"},{l:"Empresa",k:"company",ph:"Empresa Ltda"},{l:"E-mail",k:"email",ph:"joao@empresa.com"},{l:"Telefone",k:"phone",ph:"(11) 99999-9999"},{l:"Valor estimado (R$)",k:"value",ph:"10000"}].map(f=>(
-          <div key={f.k} style={{marginBottom:12}}>
-            <label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>{f.l}</label>
-            <input value={newLeadForm[f.k]} onChange={e=>setNewLeadForm(p=>({...p,[f.k]:e.target.value}))} placeholder={f.ph} style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",boxSizing:"border-box"}}/>
-          </div>
-        ))}
-        <div style={{marginBottom:12}}>
-          <label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Fonte</label>
-          <select value={newLeadForm.source} onChange={e=>setNewLeadForm(p=>({...p,source:e.target.value}))} style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,background:"white",outline:"none"}}>
-            {["Indicação","Meta Ads","Google Ads","LinkedIn","Site","Evento","WhatsApp","Outro"].map(s=><option key={s}>{s}</option>)}
-          </select>
-        </div>
-        <div style={{marginBottom:20}}>
-          <label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Notas</label>
-          <textarea value={newLeadForm.notes} onChange={e=>setNewLeadForm(p=>({...p,notes:e.target.value}))} rows={3} placeholder="Observações sobre o lead..." style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",boxSizing:"border-box",resize:"vertical"}}/>
-        </div>
-        <button onClick={saveLead} disabled={savingLead||!newLeadForm.name} style={{width:"100%",background:C.green,color:"white",border:"none",borderRadius:8,padding:"11px",fontSize:14,fontWeight:600,cursor:"pointer",opacity:(savingLead||!newLeadForm.name)?0.6:1}}>
-          {savingLead?"Salvando...":"Salvar Lead"}
-        </button>
-      </div>
-    </div>
-  );
-
   return(
     <div style={{display:"flex",height:"100vh",fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif',background:C.light,overflow:"hidden"}}>
       <div style={{width:200,background:C.dark,display:"flex",flexDirection:"column",flexShrink:0}}>
@@ -565,7 +535,6 @@ export default function CRMPro(){
     </div>
   </div>
 )}
-
 function Pg({title,sub,children,onNew}){
   return(
     <div style={{padding:24}}>
