@@ -171,6 +171,7 @@ export default function CRMPro(){
   const [aiData,setAiData]=useState(null);
   const [aiLoading,setAiLoading]=useState(false);
   const [newLeadModal,setNewLeadModal]=useState(false);
+  const [selectedConvoId,setSelectedConvoId]=useState(null);
   const [newLeadForm,setNewLeadForm]=useState({name:"",company:"",email:"",phone:"",value:"",source:"Indicação",notes:""});
   const [savingLead,setSavingLead]=useState(false);
   const [tasks,setTasks]=useState([
@@ -226,6 +227,19 @@ export default function CRMPro(){
 
   if(!authUser)return <AuthScreen onLogin={handleLogin}/>;
   if(!workspace)return <WorkspaceSelector user={authUser} workspaces={wsList} onSelect={setWorkspace}/>;
+
+const openLeadWhatsApp=(lead)=>{
+  if(!lead.phone)return;
+  const cp=lead.phone.replace(/\D/g,"");
+  setConvos(prev=>{
+    const exists=prev.find(c=>c.phone&&c.phone.replace(/\D/g,"").slice(-8)===cp.slice(-8));
+    if(exists){setSelectedConvoId(exists.id);return prev;}
+    const newConvo={id:Date.now(),lead:lead.name,phone:lead.phone,avatar:lead.name.split(" ").map(n=>n[0]).join("").slice(0,2),color:WS_COLORS[prev.length%WS_COLORS.length],unread:0,last:"",time:"",messages:[]};
+    setSelectedConvoId(newConvo.id);
+    return[...prev,newConvo];
+  });
+  setTab("whatsapp");
+};
 
   const overdue=tasks.filter(t=>t.due==="Atrasado"&&!t.done).length;
   const unreadWA=convos.reduce((a,c)=>a+c.unread,0);
@@ -339,9 +353,17 @@ export default function CRMPro(){
   };
 
   const WhatsApp=()=>{
-    const [sel,setSel]=useState(convos[0]);const [msg,setMsg]=useState("");const [aiSug,setAiSug]=useState(null);const [aiSugL,setAiSugL]=useState(false);const endRef=useRef(null);
+    const [sel,setSel]=useState(()=>convos.find(c=>c.id===selectedConvoId)||convos[0]);
+const [msg,setMsg]=useState("");const [aiSug,setAiSug]=useState(null);const [aiSugL,setAiSugL]=useState(false);const endRef=useRef(null);
     useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"});},[sel]);
     useEffect(()=>{setSel(prev=>convos.find(c=>c.id===prev?.id)||convos[0]);},[convos]);
+    useEffect(()=>{
+  if(selectedConvoId){
+    const c=convos.find(x=>x.id===selectedConvoId);
+    if(c)setSel(c);
+    setSelectedConvoId(null);
+  }
+},[selectedConvoId]);
     const send=async()=>{if(!msg.trim())return;const text=msg;setMsg("");const nm={from:"me",text,time:new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})};setConvos(prev=>prev.map(c=>c.id===sel.id?{...c,messages:[...c.messages,nm],last:text,unread:0}:c));setSel(prev=>({...prev,messages:[...prev.messages,nm]}));try{const resp=await fetch(`${API}/api/workspaces/${workspace.id}/whatsapp/send`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({phone:"55"+sel.phone.replace(/\D/g,""),message:text})});const data=await resp.json();console.log("WA response:",resp.status,data);}catch(e){console.error("Erro WA:",e);}};
     const suggestReply=async()=>{setAiSugL(true);setAiSug(null);const last=sel.messages.filter(m=>m.from==="lead").slice(-1)[0];try{const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,messages:[{role:"user",content:`Vendedor respondendo cliente no WhatsApp. Sugira 3 respostas curtas e eficazes para: "${last?.text||"primeiro contato"}". Retorne SOMENTE JSON: {"sugestoes":["resp1","resp2","resp3"]}`}]})});const d=await r.json();setAiSug(JSON.parse(d.content[0].text.replace(/```json|```/g,"").trim()).sugestoes);}catch{setAiSug(["Oi! Obrigado pelo contato. Podemos falar agora?","Claro! Me conta mais sobre sua necessidade.","Perfeito! Vou te passar todos os detalhes."]);}setAiSugL(false);};
     return(
@@ -474,7 +496,7 @@ export default function CRMPro(){
               <div style={{background:"#f0f9ff",borderRadius:8,padding:12,marginBottom:10}}><div style={{fontSize:12,fontWeight:600,color:C.blueTx,marginBottom:3}}>Análise</div><div style={{fontSize:13,color:C.text}}>{aiData.score_analise}</div><div style={{fontSize:12,color:C.slate,marginTop:3}}>Probabilidade: <strong style={{color:C.green}}>{aiData.probabilidade}</strong></div></div>
               {aiData.risco&&aiData.risco!=="null"&&<div style={{background:C.redBg,borderRadius:8,padding:10,marginBottom:10,borderLeft:`3px solid ${C.red}`}}><div style={{fontSize:11,fontWeight:600,color:C.redTx}}>⚠ Risco</div><div style={{fontSize:12,color:C.redTx,marginTop:2}}>{aiData.risco}</div></div>}
               {aiData.acoes?.map((a,i)=><div key={i} style={{border:`1px solid ${C.border}`,borderRadius:8,padding:11,marginBottom:7}}><Row mb={5}><span style={{background:C.blueBg,color:C.blue,borderRadius:4,padding:"1px 8px",fontSize:11,fontWeight:600}}>{a.tipo}</span><span style={{fontSize:11,color:a.urgencia==="Alta"?C.red:C.amber,fontWeight:600,marginLeft:"auto"}}>● {a.urgencia}</span></Row><div style={{fontSize:13,color:C.text,fontWeight:500,marginBottom:2}}>{a.acao}</div><div style={{fontSize:11,color:C.muted}}>{a.prazo}</div></div>)}
-              {aiData.whatsapp_msg&&<div style={{background:C.greenBg,borderRadius:8,padding:11,marginTop:8}}><div style={{fontSize:11,fontWeight:600,color:C.greenTx,marginBottom:4}}>💬 Mensagem sugerida para WhatsApp</div><div style={{fontSize:12,color:C.text,lineHeight:1.6}}>{aiData.whatsapp_msg}</div><button onClick={()=>setTab("whatsapp")} style={{marginTop:8,background:C.green,color:"white",border:"none",borderRadius:6,padding:"5px 12px",cursor:"pointer",fontSize:11,fontWeight:600}}>Abrir WhatsApp</button></div>}
+              {aiData.whatsapp_msg&&<div style={{background:C.greenBg,borderRadius:8,padding:11,marginTop:8}}><div style={{fontSize:11,fontWeight:600,color:C.greenTx,marginBottom:4}}>💬 Mensagem sugerida para WhatsApp</div><div style={{fontSize:12,color:C.text,lineHeight:1.6}}>{aiData.whatsapp_msg}</div><button onClick={()=>openLeadWhatsApp(l)} style={{marginTop:8,background:C.green,color:"white",border:"none",borderRadius:6,padding:"5px 12px",cursor:"pointer",fontSize:11,fontWeight:600}}>Abrir WhatsApp</button></div>}
             </>)}
             {!aiLoading&&!aiData&&<div style={{border:`2px dashed ${C.border}`,borderRadius:8,padding:20,textAlign:"center",color:C.muted,fontSize:12}}>Clique em "Gerar análise" para receber recomendações de IA para este lead</div>}
           </div>
