@@ -68,7 +68,6 @@ const INIT_CONVOS = [
 const NAV=[{id:"dashboard",label:"Dashboard",icon:"⊞"},{id:"pipeline",label:"Pipeline",icon:"⋮⋮"},{id:"leads",label:"Leads",icon:"◉"},{id:"tasks",label:"Tarefas",icon:"✓"},{id:"whatsapp",label:"WhatsApp",icon:"💬"},{id:"automations",label:"Automações",icon:"⚡"},{id:"metaads",label:"Meta Ads",icon:"↗"},{id:"reports",label:"Relatórios",icon:"📊"},{id:"settings",label:"Configurações",icon:"⚙"}];
 const WS_COLORS=["#10b981","#3b82f6","#f59e0b","#8b5cf6","#ef4444","#f97316"];
 const API=import.meta.env.VITE_API_URL||"";
-import { io } from "socket.io-client";
 
 function AuthScreen({onLogin}) {
   const [mode,setMode]=useState("login");
