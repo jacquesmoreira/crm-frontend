@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
+import { io } from "socket.io-client";
 
 const C = {
   green:"#10b981",greenBg:"#ecfdf5",greenTx:"#047857",
@@ -67,6 +68,7 @@ const INIT_CONVOS = [
 const NAV=[{id:"dashboard",label:"Dashboard",icon:"⊞"},{id:"pipeline",label:"Pipeline",icon:"⋮⋮"},{id:"leads",label:"Leads",icon:"◉"},{id:"tasks",label:"Tarefas",icon:"✓"},{id:"whatsapp",label:"WhatsApp",icon:"💬"},{id:"automations",label:"Automações",icon:"⚡"},{id:"metaads",label:"Meta Ads",icon:"↗"},{id:"reports",label:"Relatórios",icon:"📊"},{id:"settings",label:"Configurações",icon:"⚙"}];
 const WS_COLORS=["#10b981","#3b82f6","#f59e0b","#8b5cf6","#ef4444","#f97316"];
 const API=import.meta.env.VITE_API_URL||"";
+import { io } from "socket.io-client";
 
 function AuthScreen({onLogin}) {
   const [mode,setMode]=useState("login");
@@ -190,9 +192,16 @@ export default function CRMPro(){
   };
 
   useEffect(()=>{
-    if(!workspace||!token)return;
-    fetch(`${API}/api/workspaces/${workspace.id}/leads`,{headers:{Authorization:`Bearer ${token}`}})
-      .then(r=>r.json()).then(data=>{if(Array.isArray(data)&&data.length>0)setLeads(data);}).catch(()=>{});
+    if(!workspace)return;
+    const socket=io(API,{transports:["websocket"]});
+    socket.emit("join",workspace.id);
+    socket.on("wa_message",(msg)=>{
+      setConvos(prev=>prev.map(c=>
+        c.phone&&c.phone.replace(/\D/g,"")===(msg.phone.replace(/\D/g,""))?
+        {...c,messages:[...c.messages,{from:msg.from,text:msg.text,time:new Date(msg.time).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}],last:msg.text,unread:msg.from==="lead"?c.unread+1:c.unread}:c
+      ));
+    });
+    return()=>socket.disconnect();
   },[workspace]);
 
   const saveLead=async()=>{
