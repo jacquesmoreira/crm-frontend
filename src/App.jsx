@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
+import { io as socketIO } from "socket.io-client";
 
 const C = {
   green:"#10b981",greenBg:"#ecfdf5",greenTx:"#047857",
@@ -170,6 +171,7 @@ export default function CRMPro(){
   const [aiData,setAiData]=useState(null);
   const [aiLoading,setAiLoading]=useState(false);
   const [newLeadModal,setNewLeadModal]=useState(false);
+  const [selectedConvoId,setSelectedConvoId]=useState(null);
   const [newLeadForm,setNewLeadForm]=useState({name:"",company:"",email:"",phone:"",value:"",source:"Indicação",notes:""});
   const [savingLead,setSavingLead]=useState(false);
   const [tasks,setTasks]=useState([
@@ -195,6 +197,24 @@ export default function CRMPro(){
       .then(r=>r.json()).then(data=>{if(Array.isArray(data)&&data.length>0)setLeads(data);}).catch(()=>{});
   },[workspace]);
 
+  useEffect(()=>{
+    if(!workspace)return;
+    const socket=socketIO(API,{transports:["websocket"]});
+    socket.emit("join",workspace.id);
+    socket.on("wa_message",(msg)=>{
+      const mp=msg.phone.replace(/\D/g,"");
+      setConvos(prev=>prev.map(c=>{
+        if(!c.phone)return c;
+        const cp=c.phone.replace(/\D/g,"");
+        if(mp.includes(cp.slice(-8))||cp.includes(mp.slice(-8))){
+          return{...c,messages:[...c.messages,{from:msg.from,text:msg.text,time:new Date(msg.time).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}],last:msg.text,unread:msg.from==="lead"?c.unread+1:c.unread};
+        }
+        return c;
+      }));
+    });
+    return()=>socket.disconnect();
+  },[workspace]);
+
   const saveLead=async()=>{
     setSavingLead(true);
     try{
@@ -203,6 +223,19 @@ export default function CRMPro(){
       if(r.ok){setLeads(p=>[d,...p]);setNewLeadModal(false);setNewLeadForm({name:"",company:"",email:"",phone:"",value:"",source:"Indicação",notes:""});}
     }catch{}
     setSavingLead(false);
+  };
+
+  const openLeadWhatsApp=(lead)=>{
+    if(!lead.phone)return;
+    const cp=lead.phone.replace(/\D/g,"");
+    setConvos(prev=>{
+      const exists=prev.find(c=>c.phone&&c.phone.replace(/\D/g,"").slice(-8)===cp.slice(-8));
+      if(exists){setSelectedConvoId(exists.id);return prev;}
+      const newConvo={id:Date.now(),lead:lead.name,phone:lead.phone,avatar:lead.name.split(" ").map(n=>n[0]).join("").slice(0,2),color:WS_COLORS[prev.length%WS_COLORS.length],unread:0,last:"",time:"",messages:[]};
+      setSelectedConvoId(newConvo.id);
+      return[...prev,newConvo];
+    });
+    setTab("whatsapp");
   };
 
   if(!authUser)return <AuthScreen onLogin={handleLogin}/>;
@@ -215,7 +248,7 @@ export default function CRMPro(){
   const analyzeAI=async lead=>{
     setAiData(null);setAiLoading(true);
     try{
-      const r=await fetch(`${API}/api/ai/analyze`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:900,messages:[{role:"user",content:`Especialista em vendas B2B. Analise e retorne SOMENTE JSON válido.\nLead: ${lead.name} | ${lead.company} | Stage: ${lead.stage} | Valor: R$${lead.value.toLocaleString()} | Score: ${lead.score||50}\nFonte: ${lead.source} | Notas: ${lead.notes}\n{"score_analise":"1 frase","probabilidade":"XX%","acoes":[{"tipo":"Ligação|E-mail|WhatsApp|Reunião","acao":"ação específica","urgencia":"Alta|Média|Baixa","prazo":"quando"}],"risco":"risco ou null","whatsapp_msg":"mensagem pronta para enviar no WhatsApp (informal, até 100 palavras)"}`}]})});
+      const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:900,messages:[{role:"user",content:`Especialista em vendas B2B. Analise e retorne SOMENTE JSON válido.\nLead: ${lead.name} | ${lead.company} | Stage: ${lead.stage} | Valor: R$${lead.value.toLocaleString()} | Score: ${lead.score||50}\nFonte: ${lead.source} | Notas: ${lead.notes}\n{"score_analise":"1 frase","probabilidade":"XX%","acoes":[{"tipo":"Ligação|E-mail|WhatsApp|Reunião","acao":"ação específica","urgencia":"Alta|Média|Baixa","prazo":"quando"}],"risco":"risco ou null","whatsapp_msg":"mensagem pronta para enviar no WhatsApp (informal, até 100 palavras)"}`}]})});
       const d=await r.json();
       setAiData(JSON.parse(d.content[0].text.replace(/```json|```/g,"").trim()));
     }catch{setAiData({error:true});}
@@ -320,10 +353,12 @@ export default function CRMPro(){
   };
 
   const WhatsApp=()=>{
-    const [sel,setSel]=useState(convos[0]);const [msg,setMsg]=useState("");const [aiSug,setAiSug]=useState(null);const [aiSugL,setAiSugL]=useState(false);const endRef=useRef(null);
+    const [sel,setSel]=useState(()=>convos.find(c=>c.id===selectedConvoId)||convos[0]);const [msg,setMsg]=useState("");const [aiSug,setAiSug]=useState(null);const [aiSugL,setAiSugL]=useState(false);const endRef=useRef(null);
     useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"});},[sel]);
-    const send=()=>{if(!msg.trim())return;const nm={from:"me",text:msg,time:new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})};setConvos(prev=>prev.map(c=>c.id===sel.id?{...c,messages:[...c.messages,nm],last:msg,unread:0}:c));setSel(prev=>({...prev,messages:[...prev.messages,nm]}));setMsg("");};
-    const suggestReply=async()=>{setAiSugL(true);setAiSug(null);const last=sel.messages.filter(m=>m.from==="lead").slice(-1)[0];try{const r=await fetch(`${API}/api/ai/analyze`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,messages:[{role:"user",content:`Vendedor respondendo cliente no WhatsApp. Sugira 3 respostas curtas e eficazes para: "${last?.text||"primeiro contato"}". Retorne SOMENTE JSON: {"sugestoes":["resp1","resp2","resp3"]}`}]})});const d=await r.json();setAiSug(JSON.parse(d.content[0].text.replace(/```json|```/g,"").trim()).sugestoes);}catch{setAiSug(["Oi! Obrigado pelo contato. Podemos falar agora?","Claro! Me conta mais sobre sua necessidade.","Perfeito! Vou te passar todos os detalhes."]);}setAiSugL(false);};
+    useEffect(()=>{setSel(prev=>convos.find(c=>c.id===prev?.id)||convos[0]);},[convos]);
+    useEffect(()=>{if(selectedConvoId){const c=convos.find(x=>x.id===selectedConvoId);if(c)setSel(c);setSelectedConvoId(null);}},[selectedConvoId]);
+    const send=async()=>{if(!msg.trim())return;const text=msg;setMsg("");const nm={from:"me",text,time:new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})};setConvos(prev=>prev.map(c=>c.id===sel.id?{...c,messages:[...c.messages,nm],last:text,unread:0}:c));setSel(prev=>({...prev,messages:[...prev.messages,nm]}));try{await fetch(`${API}/api/workspaces/${workspace.id}/whatsapp/send`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({phone:"55"+sel.phone.replace(/\D/g,""),message:text})});}catch(e){console.error("Erro WA:",e);}};
+    const suggestReply=async()=>{setAiSugL(true);setAiSug(null);const last=sel.messages.filter(m=>m.from==="lead").slice(-1)[0];try{const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,messages:[{role:"user",content:`Vendedor respondendo cliente no WhatsApp. Sugira 3 respostas curtas e eficazes para: "${last?.text||"primeiro contato"}". Retorne SOMENTE JSON: {"sugestoes":["resp1","resp2","resp3"]}`}]})});const d=await r.json();setAiSug(JSON.parse(d.content[0].text.replace(/```json|```/g,"").trim()).sugestoes);}catch{setAiSug(["Oi! Obrigado pelo contato. Podemos falar agora?","Claro! Me conta mais sobre sua necessidade.","Perfeito! Vou te passar todos os detalhes."]);}setAiSugL(false);};
     return(
       <Pg title="WhatsApp" sub={`${unreadWA} mensagens não lidas · ${convos.length} conversas`}>
         <div style={{...card,padding:0,overflow:"hidden",display:"flex",height:520}}>
@@ -367,7 +402,7 @@ export default function CRMPro(){
 
   const Automations=()=>{
     const [sel,setSel]=useState(null);const [aiAuto,setAiAuto]=useState(null);const [aiL,setAiL]=useState(false);
-    const genAuto=async()=>{setAiL(true);setAiAuto(null);try{const r=await fetch(`${API}/api/ai/analyze`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:600,messages:[{role:"user",content:`Crie 1 nova automação inteligente para um CRM de vendas brasileiro. Retorne SOMENTE JSON: {"name":"nome da automação","trigger":{"tipo":"sem_atividade|novo_lead|score_threshold|sem_avanco","descricao":"descrição do gatilho"},"acoes":[{"tipo":"whatsapp|criar_tarefa|notificar|score|tag","label":"o que fazer"}],"justificativa":"por que essa automação gera resultado"}`}]})});const d=await r.json();setAiAuto(JSON.parse(d.content[0].text.replace(/```json|```/g,"").trim()));}catch{setAiAuto({error:true});}setAiL(false);};
+    const genAuto=async()=>{setAiL(true);setAiAuto(null);try{const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:600,messages:[{role:"user",content:`Crie 1 nova automação inteligente para um CRM de vendas brasileiro. Retorne SOMENTE JSON: {"name":"nome da automação","trigger":{"tipo":"sem_atividade|novo_lead|score_threshold|sem_avanco","descricao":"descrição do gatilho"},"acoes":[{"tipo":"whatsapp|criar_tarefa|notificar|score|tag","label":"o que fazer"}],"justificativa":"por que essa automação gera resultado"}`}]})});const d=await r.json();setAiAuto(JSON.parse(d.content[0].text.replace(/```json|```/g,"").trim()));}catch{setAiAuto({error:true});}setAiL(false);};
     return(
       <Pg title="Automações" sub={`${autos.filter(a=>a.active).length} ativas · ${autos.length} cadastradas`}>
         <Row mb={16}><button onClick={genAuto} disabled={aiL} style={{background:C.purple,color:"white",border:"none",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:13,fontWeight:600,marginLeft:"auto"}}>{aiL?"Gerando...":"✦ Gerar com IA"}</button></Row>
