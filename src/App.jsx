@@ -201,7 +201,9 @@ export default function CRMPro(){
         if(!c.phone)return c;
         const cp=c.phone.replace(/\D/g,"");
         if(mp.includes(cp.slice(-8))||cp.includes(mp.slice(-8))){
-          return{...c,messages:[...c.messages,{from:msg.from,text:msg.text,time:new Date(msg.time).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}],last:msg.text,unread:msg.from==="lead"?c.unread+1:c.unread};
+          const updated={...c,messages:[...c.messages,{from:msg.from,text:msg.text,time:new Date(msg.time).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}],last:msg.text,unread:msg.from==="lead"?c.unread+1:c.unread};
+          setSel(prev=>prev&&prev.id===c.id?updated:prev);
+          return updated;
         }
         return c;
       }));
