@@ -196,7 +196,7 @@ export default function CRMPro(){
     socket.emit("join",workspace.id);
     socket.on("wa_message",(msg)=>{
       setConvos(prev=>prev.map(c=>
-        c.phone&&c.phone.replace(/\D/g,"")===(msg.phone.replace(/\D/g,""))?
+        c.phone&&(msg.phone.endsWith(c.phone.replace(/\D/g,""))||c.phone.replace(/\D/g,"").endsWith(msg.phone.replace(/\D/g,"")))
         {...c,messages:[...c.messages,{from:msg.from,text:msg.text,time:new Date(msg.time).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}],last:msg.text,unread:msg.from==="lead"?c.unread+1:c.unread}:c
       ));
     });
