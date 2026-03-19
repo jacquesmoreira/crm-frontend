@@ -226,17 +226,18 @@ export default function CRMPro(){
   };
 
   const openLeadWhatsApp=(lead)=>{
-    if(!lead.phone)return;
-    const cp=lead.phone.replace(/\D/g,"");
-    setConvos(prev=>{
-      const exists=prev.find(c=>c.phone&&c.phone.replace(/\D/g,"").slice(-8)===cp.slice(-8));
-      if(exists){setSelectedConvoId(exists.id);return prev;}
-      const newConvo={id:Date.now(),lead:lead.name,phone:lead.phone,avatar:lead.name.split(" ").map(n=>n[0]).join("").slice(0,2),color:WS_COLORS[prev.length%WS_COLORS.length],unread:0,last:"",time:"",messages:[]};
-      setSelectedConvoId(newConvo.id);
-      return[...prev,newConvo];
-    });
-    setTab("whatsapp");
-  };
+  if(!lead.phone)return;
+  const cp=lead.phone.replace(/\D/g,"");
+  const exists=convos.find(c=>c.phone&&c.phone.replace(/\D/g,"").slice(-8)===cp.slice(-8));
+  if(exists){
+    setSelectedConvoId(exists.id);
+  } else {
+    const newConvo={id:Date.now(),lead:lead.name,phone:lead.phone,avatar:lead.name.split(" ").map(n=>n[0]).join("").slice(0,2),color:WS_COLORS[convos.length%WS_COLORS.length],unread:0,last:"",time:"",messages:[]};
+    setConvos(prev=>[...prev,newConvo]);
+    setSelectedConvoId(newConvo.id);
+  }
+  setTab("whatsapp");
+};
 
   if(!authUser)return <AuthScreen onLogin={handleLogin}/>;
   if(!workspace)return <WorkspaceSelector user={authUser} workspaces={wsList} onSelect={setWorkspace}/>;
