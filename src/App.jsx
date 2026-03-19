@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
-import { io } from "socket.io-client";
+import { io as socketIO } from "socket.io-client";
 
 const C = {
   green:"#10b981",greenBg:"#ecfdf5",greenTx:"#047857",
@@ -193,7 +193,7 @@ export default function CRMPro(){
 
   useEffect(()=>{
     if(!workspace)return;
-    const socket=io(API,{transports:["websocket"]});
+    const socket=socketIO(API,{transports:["websocket"]});
     socket.emit("join",workspace.id);
     socket.on("wa_message",(msg)=>{
       setConvos(prev=>prev.map(c=>
