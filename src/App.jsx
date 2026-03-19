@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
-import { io as socketIO } from "socket.io-client";
 
 const C = {
   green:"#10b981",greenBg:"#ecfdf5",greenTx:"#047857",
@@ -60,7 +59,7 @@ const TRIGGER_LABELS={novo_lead:"Novo lead criado",sem_atividade:"Sem atividade 
 const ACTION_COLORS={whatsapp:C.green,criar_tarefa:C.blue,notificar:C.amber,score:C.purple,tag:C.slate,assignee:"#f97316"};
 const ACTION_ICONS={whatsapp:"💬",criar_tarefa:"✓",notificar:"🔔",score:"◉",tag:"🏷",assignee:"👤"};
 const INIT_CONVOS = [
-  {id:1,lead:"Fernanda Lima",phone:"(47) 98414-2020",avatar:"FL",color:"#10b981",unread:0,last:"Perfeito! Vou confirmar com o financeiro ainda hoje.",time:"14:32",messages:[{from:"me",text:"Olá Fernanda! Tudo bem? Passando para confirmar nossa proposta de R$28.000.",time:"10:15"},{from:"lead",text:"Sim! Gostei muito do material. Só preciso aprovar com o financeiro.",time:"10:48"},{from:"lead",text:"Perfeito! Vou confirmar com o financeiro ainda hoje.",time:"14:32"}]},
+  {id:1,lead:"Fernanda Lima",phone:"(11) 98765-4321",avatar:"FL",color:"#10b981",unread:0,last:"Perfeito! Vou confirmar com o financeiro ainda hoje.",time:"14:32",messages:[{from:"me",text:"Olá Fernanda! Tudo bem? Passando para confirmar nossa proposta de R$28.000.",time:"10:15"},{from:"lead",text:"Sim! Gostei muito do material. Só preciso aprovar com o financeiro.",time:"10:48"},{from:"lead",text:"Perfeito! Vou confirmar com o financeiro ainda hoje.",time:"14:32"}]},
   {id:2,lead:"Carlos Mendes",phone:"(47) 99123-4567",avatar:"CM",color:"#3b82f6",unread:2,last:"Pode ser na sexta às 14h?",time:"09:18",messages:[{from:"me",text:"Carlos, bom dia! Sua proposta está pronta. Posso te chamar para uma call de 20min?",time:"08:45"},{from:"lead",text:"Pode ser na sexta às 14h?",time:"09:18"}]},
   {id:3,lead:"Amanda Vieira",phone:"(51) 99876-1234",avatar:"AV",color:"#f59e0b",unread:0,last:"Vejo você quinta então 👍",time:"Ontem",messages:[{from:"lead",text:"Oi! Só confirmando a call de quinta às 15h.",time:"16:20"},{from:"me",text:"Confirmado! Te envio o link do meet em breve.",time:"16:35"},{from:"lead",text:"Vejo você quinta então 👍",time:"16:36"}]},
   {id:4,lead:"Lucas Ferreira",phone:"(21) 98123-9876",avatar:"LF",color:"#8b5cf6",unread:1,last:"Olá! Gostaria de saber mais sobre os planos.",time:"08:02",messages:[{from:"lead",text:"Olá! Gostaria de saber mais sobre os planos.",time:"08:02"}]},
@@ -171,7 +170,6 @@ export default function CRMPro(){
   const [aiData,setAiData]=useState(null);
   const [aiLoading,setAiLoading]=useState(false);
   const [newLeadModal,setNewLeadModal]=useState(false);
-  const [selectedConvoId,setSelectedConvoId]=useState(null);
   const [newLeadForm,setNewLeadForm]=useState({name:"",company:"",email:"",phone:"",value:"",source:"Indicação",notes:""});
   const [savingLead,setSavingLead]=useState(false);
   const [tasks,setTasks]=useState([
@@ -197,24 +195,6 @@ export default function CRMPro(){
       .then(r=>r.json()).then(data=>{if(Array.isArray(data)&&data.length>0)setLeads(data);}).catch(()=>{});
   },[workspace]);
 
-  useEffect(()=>{
-    if(!workspace)return;
-    const socket=socketIO(API,{transports:["websocket"]});
-    socket.emit("join",workspace.id);
-    socket.on("wa_message",(msg)=>{
-      const mp=msg.phone.replace(/\D/g,"");
-      setConvos(prev=>prev.map(c=>{
-        if(!c.phone)return c;
-        const cp=c.phone.replace(/\D/g,"");
-        if(mp.includes(cp.slice(-8))||cp.includes(mp.slice(-8))){
-          return{...c,messages:[...c.messages,{from:msg.from,text:msg.text,time:new Date(msg.time).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}],last:msg.text,unread:msg.from==="lead"?c.unread+1:c.unread};
-        }
-        return c;
-      }));
-    });
-    return()=>socket.disconnect();
-  },[workspace]);
-
   const saveLead=async()=>{
     setSavingLead(true);
     try{
@@ -228,19 +208,6 @@ export default function CRMPro(){
   if(!authUser)return <AuthScreen onLogin={handleLogin}/>;
   if(!workspace)return <WorkspaceSelector user={authUser} workspaces={wsList} onSelect={setWorkspace}/>;
 
-const openLeadWhatsApp=(lead)=>{
-  if(!lead.phone)return;
-  const cp=lead.phone.replace(/\D/g,"");
-  setConvos(prev=>{
-    const exists=prev.find(c=>c.phone&&c.phone.replace(/\D/g,"").slice(-8)===cp.slice(-8));
-    if(exists){setSelectedConvoId(exists.id);return prev;}
-    const newConvo={id:Date.now(),lead:lead.name,phone:lead.phone,avatar:lead.name.split(" ").map(n=>n[0]).join("").slice(0,2),color:WS_COLORS[prev.length%WS_COLORS.length],unread:0,last:"",time:"",messages:[]};
-    setSelectedConvoId(newConvo.id);
-    return[...prev,newConvo];
-  });
-  setTab("whatsapp");
-};
-
   const overdue=tasks.filter(t=>t.due==="Atrasado"&&!t.done).length;
   const unreadWA=convos.reduce((a,c)=>a+c.unread,0);
   const pipeVal=leads.filter(l=>l.stage!=="Fechado").reduce((a,l)=>a+l.value,0);
@@ -248,7 +215,7 @@ const openLeadWhatsApp=(lead)=>{
   const analyzeAI=async lead=>{
     setAiData(null);setAiLoading(true);
     try{
-      const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:900,messages:[{role:"user",content:`Especialista em vendas B2B. Analise e retorne SOMENTE JSON válido.\nLead: ${lead.name} | ${lead.company} | Stage: ${lead.stage} | Valor: R$${lead.value.toLocaleString()} | Score: ${lead.score||50}\nFonte: ${lead.source} | Notas: ${lead.notes}\n{"score_analise":"1 frase","probabilidade":"XX%","acoes":[{"tipo":"Ligação|E-mail|WhatsApp|Reunião","acao":"ação específica","urgencia":"Alta|Média|Baixa","prazo":"quando"}],"risco":"risco ou null","whatsapp_msg":"mensagem pronta para enviar no WhatsApp (informal, até 100 palavras)"}`}]})});
+      const r=await fetch(`${API}/api/ai/analyze`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:900,messages:[{role:"user",content:`Especialista em vendas B2B. Analise e retorne SOMENTE JSON válido.\nLead: ${lead.name} | ${lead.company} | Stage: ${lead.stage} | Valor: R$${lead.value.toLocaleString()} | Score: ${lead.score||50}\nFonte: ${lead.source} | Notas: ${lead.notes}\n{"score_analise":"1 frase","probabilidade":"XX%","acoes":[{"tipo":"Ligação|E-mail|WhatsApp|Reunião","acao":"ação específica","urgencia":"Alta|Média|Baixa","prazo":"quando"}],"risco":"risco ou null","whatsapp_msg":"mensagem pronta para enviar no WhatsApp (informal, até 100 palavras)"}`}]})});
       const d=await r.json();
       setAiData(JSON.parse(d.content[0].text.replace(/```json|```/g,"").trim()));
     }catch{setAiData({error:true});}
@@ -353,19 +320,10 @@ const openLeadWhatsApp=(lead)=>{
   };
 
   const WhatsApp=()=>{
-    const [sel,setSel]=useState(()=>convos.find(c=>c.id===selectedConvoId)||convos[0]);
-const [msg,setMsg]=useState("");const [aiSug,setAiSug]=useState(null);const [aiSugL,setAiSugL]=useState(false);const endRef=useRef(null);
+    const [sel,setSel]=useState(convos[0]);const [msg,setMsg]=useState("");const [aiSug,setAiSug]=useState(null);const [aiSugL,setAiSugL]=useState(false);const endRef=useRef(null);
     useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"});},[sel]);
-    useEffect(()=>{setSel(prev=>convos.find(c=>c.id===prev?.id)||convos[0]);},[convos]);
-    useEffect(()=>{
-  if(selectedConvoId){
-    const c=convos.find(x=>x.id===selectedConvoId);
-    if(c)setSel(c);
-    setSelectedConvoId(null);
-  }
-},[selectedConvoId]);
-    const send=async()=>{if(!msg.trim())return;const text=msg;setMsg("");const nm={from:"me",text,time:new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})};setConvos(prev=>prev.map(c=>c.id===sel.id?{...c,messages:[...c.messages,nm],last:text,unread:0}:c));setSel(prev=>({...prev,messages:[...prev.messages,nm]}));try{const resp=await fetch(`${API}/api/workspaces/${workspace.id}/whatsapp/send`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({phone:"55"+sel.phone.replace(/\D/g,""),message:text})});const data=await resp.json();console.log("WA response:",resp.status,data);}catch(e){console.error("Erro WA:",e);}};
-    const suggestReply=async()=>{setAiSugL(true);setAiSug(null);const last=sel.messages.filter(m=>m.from==="lead").slice(-1)[0];try{const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,messages:[{role:"user",content:`Vendedor respondendo cliente no WhatsApp. Sugira 3 respostas curtas e eficazes para: "${last?.text||"primeiro contato"}". Retorne SOMENTE JSON: {"sugestoes":["resp1","resp2","resp3"]}`}]})});const d=await r.json();setAiSug(JSON.parse(d.content[0].text.replace(/```json|```/g,"").trim()).sugestoes);}catch{setAiSug(["Oi! Obrigado pelo contato. Podemos falar agora?","Claro! Me conta mais sobre sua necessidade.","Perfeito! Vou te passar todos os detalhes."]);}setAiSugL(false);};
+    const send=()=>{if(!msg.trim())return;const nm={from:"me",text:msg,time:new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})};setConvos(prev=>prev.map(c=>c.id===sel.id?{...c,messages:[...c.messages,nm],last:msg,unread:0}:c));setSel(prev=>({...prev,messages:[...prev.messages,nm]}));setMsg("");};
+    const suggestReply=async()=>{setAiSugL(true);setAiSug(null);const last=sel.messages.filter(m=>m.from==="lead").slice(-1)[0];try{const r=await fetch(`${API}/api/ai/analyze`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,messages:[{role:"user",content:`Vendedor respondendo cliente no WhatsApp. Sugira 3 respostas curtas e eficazes para: "${last?.text||"primeiro contato"}". Retorne SOMENTE JSON: {"sugestoes":["resp1","resp2","resp3"]}`}]})});const d=await r.json();setAiSug(JSON.parse(d.content[0].text.replace(/```json|```/g,"").trim()).sugestoes);}catch{setAiSug(["Oi! Obrigado pelo contato. Podemos falar agora?","Claro! Me conta mais sobre sua necessidade.","Perfeito! Vou te passar todos os detalhes."]);}setAiSugL(false);};
     return(
       <Pg title="WhatsApp" sub={`${unreadWA} mensagens não lidas · ${convos.length} conversas`}>
         <div style={{...card,padding:0,overflow:"hidden",display:"flex",height:520}}>
@@ -409,7 +367,7 @@ const [msg,setMsg]=useState("");const [aiSug,setAiSug]=useState(null);const [aiS
 
   const Automations=()=>{
     const [sel,setSel]=useState(null);const [aiAuto,setAiAuto]=useState(null);const [aiL,setAiL]=useState(false);
-    const genAuto=async()=>{setAiL(true);setAiAuto(null);try{const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:600,messages:[{role:"user",content:`Crie 1 nova automação inteligente para um CRM de vendas brasileiro. Retorne SOMENTE JSON: {"name":"nome da automação","trigger":{"tipo":"sem_atividade|novo_lead|score_threshold|sem_avanco","descricao":"descrição do gatilho"},"acoes":[{"tipo":"whatsapp|criar_tarefa|notificar|score|tag","label":"o que fazer"}],"justificativa":"por que essa automação gera resultado"}`}]})});const d=await r.json();setAiAuto(JSON.parse(d.content[0].text.replace(/```json|```/g,"").trim()));}catch{setAiAuto({error:true});}setAiL(false);};
+    const genAuto=async()=>{setAiL(true);setAiAuto(null);try{const r=await fetch(`${API}/api/ai/analyze`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:600,messages:[{role:"user",content:`Crie 1 nova automação inteligente para um CRM de vendas brasileiro. Retorne SOMENTE JSON: {"name":"nome da automação","trigger":{"tipo":"sem_atividade|novo_lead|score_threshold|sem_avanco","descricao":"descrição do gatilho"},"acoes":[{"tipo":"whatsapp|criar_tarefa|notificar|score|tag","label":"o que fazer"}],"justificativa":"por que essa automação gera resultado"}`}]})});const d=await r.json();setAiAuto(JSON.parse(d.content[0].text.replace(/```json|```/g,"").trim()));}catch{setAiAuto({error:true});}setAiL(false);};
     return(
       <Pg title="Automações" sub={`${autos.filter(a=>a.active).length} ativas · ${autos.length} cadastradas`}>
         <Row mb={16}><button onClick={genAuto} disabled={aiL} style={{background:C.purple,color:"white",border:"none",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:13,fontWeight:600,marginLeft:"auto"}}>{aiL?"Gerando...":"✦ Gerar com IA"}</button></Row>
@@ -490,13 +448,14 @@ const [msg,setMsg]=useState("");const [aiSug,setAiSug]=useState(null);const [aiS
             {l.notes&&<><div style={{fontSize:11,color:C.muted,marginBottom:4}}>Notas</div><div style={{fontSize:12,color:"#475569",lineHeight:1.6,background:C.light,borderRadius:8,padding:"10px 12px"}}>{l.notes}</div></>}
           </div>
           <div style={{padding:"14px 20px"}}>
+            {l.phone&&<button onClick={()=>{setSelLead(null);openLeadWhatsApp(l);}} style={{width:"100%",background:C.green,color:"white",border:"none",borderRadius:8,padding:"10px",fontSize:13,fontWeight:600,cursor:"pointer",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>💬 Enviar mensagem no WhatsApp</button>}
             <Row mb={10}><span style={{fontWeight:600,color:C.text,fontSize:13}}>✦ Análise de IA</span><button onClick={()=>analyzeAI(l)} disabled={aiLoading} style={{background:aiLoading?C.light:C.blueBg,color:aiLoading?C.muted:C.blue,border:"none",borderRadius:6,padding:"5px 12px",cursor:aiLoading?"wait":"pointer",fontSize:12,fontWeight:600,marginLeft:"auto"}}>{aiLoading?"Analisando...":"Gerar análise"}</button></Row>
             {aiLoading&&<div style={{textAlign:"center",padding:20,color:C.muted,fontSize:13}}>✦ Analisando com IA...</div>}
             {aiData&&!aiData.error&&(<>
               <div style={{background:"#f0f9ff",borderRadius:8,padding:12,marginBottom:10}}><div style={{fontSize:12,fontWeight:600,color:C.blueTx,marginBottom:3}}>Análise</div><div style={{fontSize:13,color:C.text}}>{aiData.score_analise}</div><div style={{fontSize:12,color:C.slate,marginTop:3}}>Probabilidade: <strong style={{color:C.green}}>{aiData.probabilidade}</strong></div></div>
               {aiData.risco&&aiData.risco!=="null"&&<div style={{background:C.redBg,borderRadius:8,padding:10,marginBottom:10,borderLeft:`3px solid ${C.red}`}}><div style={{fontSize:11,fontWeight:600,color:C.redTx}}>⚠ Risco</div><div style={{fontSize:12,color:C.redTx,marginTop:2}}>{aiData.risco}</div></div>}
               {aiData.acoes?.map((a,i)=><div key={i} style={{border:`1px solid ${C.border}`,borderRadius:8,padding:11,marginBottom:7}}><Row mb={5}><span style={{background:C.blueBg,color:C.blue,borderRadius:4,padding:"1px 8px",fontSize:11,fontWeight:600}}>{a.tipo}</span><span style={{fontSize:11,color:a.urgencia==="Alta"?C.red:C.amber,fontWeight:600,marginLeft:"auto"}}>● {a.urgencia}</span></Row><div style={{fontSize:13,color:C.text,fontWeight:500,marginBottom:2}}>{a.acao}</div><div style={{fontSize:11,color:C.muted}}>{a.prazo}</div></div>)}
-              {aiData.whatsapp_msg&&<div style={{background:C.greenBg,borderRadius:8,padding:11,marginTop:8}}><div style={{fontSize:11,fontWeight:600,color:C.greenTx,marginBottom:4}}>💬 Mensagem sugerida para WhatsApp</div><div style={{fontSize:12,color:C.text,lineHeight:1.6}}>{aiData.whatsapp_msg}</div><button onClick={()=>openLeadWhatsApp(l)} style={{marginTop:8,background:C.green,color:"white",border:"none",borderRadius:6,padding:"5px 12px",cursor:"pointer",fontSize:11,fontWeight:600}}>Abrir WhatsApp</button></div>}
+              {aiData.whatsapp_msg&&<div style={{background:C.greenBg,borderRadius:8,padding:11,marginTop:8}}><div style={{fontSize:11,fontWeight:600,color:C.greenTx,marginBottom:4}}>💬 Mensagem sugerida para WhatsApp</div><div style={{fontSize:12,color:C.text,lineHeight:1.6}}>{aiData.whatsapp_msg}</div><button onClick={()=>setTab("whatsapp")} style={{marginTop:8,background:C.green,color:"white",border:"none",borderRadius:6,padding:"5px 12px",cursor:"pointer",fontSize:11,fontWeight:600}}>Abrir WhatsApp</button></div>}
             </>)}
             {!aiLoading&&!aiData&&<div style={{border:`2px dashed ${C.border}`,borderRadius:8,padding:20,textAlign:"center",color:C.muted,fontSize:12}}>Clique em "Gerar análise" para receber recomendações de IA para este lead</div>}
           </div>
