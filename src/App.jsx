@@ -190,16 +190,21 @@ export default function CRMPro(){
     }
   };
 
-  useEffect(()=>{
+ useEffect(()=>{
     if(!workspace)return;
     const socket=socketIO(API,{transports:["websocket"]});
     socket.emit("join",workspace.id);
     socket.on("wa_message",(msg)=>{
       console.log("WA received:", msg);
-      setConvos(prev=>prev.map(c=>
-        c.phone&&(()=>{const cp=c.phone.replace(/\D/g,"");const mp=msg.phone.replace(/\D/g,"");return mp.endsWith(cp)||cp.endsWith(mp)||mp.includes(cp.slice(-8))||cp.includes(mp.slice(-8));})()
-        {...c,messages:[...c.messages,{from:msg.from,text:msg.text,time:new Date(msg.time).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}],last:msg.text,unread:msg.from==="lead"?c.unread+1:c.unread}:c
-      ));
+      const mp=msg.phone.replace(/\D/g,"");
+      setConvos(prev=>prev.map(c=>{
+        if(!c.phone)return c;
+        const cp=c.phone.replace(/\D/g,"");
+        if(mp.includes(cp.slice(-8))||cp.includes(mp.slice(-8))){
+          return{...c,messages:[...c.messages,{from:msg.from,text:msg.text,time:new Date(msg.time).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}],last:msg.text,unread:msg.from==="lead"?c.unread+1:c.unread};
+        }
+        return c;
+      }));
     });
     return()=>socket.disconnect();
   },[workspace]);
