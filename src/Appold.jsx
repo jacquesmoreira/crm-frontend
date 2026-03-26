@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
+import { io as socketIO } from "socket.io-client";
 
 const C = {
   green:"#10b981",greenBg:"#ecfdf5",greenTx:"#047857",
@@ -170,11 +171,9 @@ export default function CRMPro(){
   const [aiData,setAiData]=useState(null);
   const [aiLoading,setAiLoading]=useState(false);
   const [newLeadModal,setNewLeadModal]=useState(false);
+  const [selectedConvoId,setSelectedConvoId]=useState(null);
   const [newLeadForm,setNewLeadForm]=useState({name:"",company:"",email:"",phone:"",value:"",source:"Indicação",notes:""});
   const [savingLead,setSavingLead]=useState(false);
-  const [editingLead,setEditingLead]=useState(null);
-  const [editForm,setEditForm]=useState({});
-  const [savingEdit,setSavingEdit]=useState(false);
   const [tasks,setTasks]=useState([
     {id:1,title:"Ligar Fernanda Lima — contraproposta",lead:"Fernanda Lima",type:"Ligação",due:"Hoje",pri:"Alta",done:false},
     {id:2,title:"Enviar contrato Amanda Vieira",lead:"Amanda Vieira",type:"E-mail",due:"Hoje",pri:"Alta",done:false},
@@ -198,6 +197,24 @@ export default function CRMPro(){
       .then(r=>r.json()).then(data=>{if(Array.isArray(data)&&data.length>0)setLeads(data);}).catch(()=>{});
   },[workspace]);
 
+  useEffect(()=>{
+    if(!workspace)return;
+    const socket=socketIO(API,{transports:["websocket"]});
+    socket.emit("join",workspace.id);
+    socket.on("wa_message",(msg)=>{
+      const mp=msg.phone.replace(/\D/g,"");
+      setConvos(prev=>prev.map(c=>{
+        if(!c.phone)return c;
+        const cp=c.phone.replace(/\D/g,"");
+        if(mp.includes(cp.slice(-8))||cp.includes(mp.slice(-8))){
+          return{...c,messages:[...c.messages,{from:msg.from,text:msg.text,time:new Date(msg.time).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}],last:msg.text,unread:msg.from==="lead"?c.unread+1:c.unread};
+        }
+        return c;
+      }));
+    });
+    return()=>socket.disconnect();
+  },[workspace]);
+
   const saveLead=async()=>{
     setSavingLead(true);
     try{
@@ -208,15 +225,19 @@ export default function CRMPro(){
     setSavingLead(false);
   };
 
-  const saveEdit=async()=>{
-    setSavingEdit(true);
-    try{
-      const r=await fetch(`${API}/api/workspaces/${workspace.id}/leads/${editingLead.id}`,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({...editForm,value:Number(editForm.value)||0})});
-      const d=await r.json();
-      if(r.ok){setLeads(p=>p.map(l=>l.id===d.id?d:l));setSelLead(d);setEditingLead(null);}
-    }catch{}
-    setSavingEdit(false);
-  };
+  const openLeadWhatsApp=(lead)=>{
+  if(!lead.phone)return;
+  const cp=lead.phone.replace(/\D/g,"");
+  const exists=convos.find(c=>c.phone&&c.phone.replace(/\D/g,"").slice(-8)===cp.slice(-8));
+  if(exists){
+    setSelectedConvoId(exists.id);
+  } else {
+    const newConvo={id:Date.now(),lead:lead.name,phone:lead.phone,avatar:lead.name.split(" ").map(n=>n[0]).join("").slice(0,2),color:WS_COLORS[convos.length%WS_COLORS.length],unread:0,last:"",time:"",messages:[]};
+    setConvos(prev=>[...prev,newConvo]);
+    setSelectedConvoId(newConvo.id);
+  }
+  setTab("whatsapp");
+};
 
   if(!authUser)return <AuthScreen onLogin={handleLogin}/>;
   if(!workspace)return <WorkspaceSelector user={authUser} workspaces={wsList} onSelect={setWorkspace}/>;
@@ -228,7 +249,7 @@ export default function CRMPro(){
   const analyzeAI=async lead=>{
     setAiData(null);setAiLoading(true);
     try{
-      const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:900,messages:[{role:"user",content:`Especialista em vendas B2B. Analise e retorne SOMENTE JSON válido.\nLead: ${lead.name} | ${lead.company} | Stage: ${lead.stage} | Valor: R$${lead.value.toLocaleString()} | Score: ${lead.score||50}\nFonte: ${lead.source} | Notas: ${lead.notes}\n{"score_analise":"1 frase","probabilidade":"XX%","acoes":[{"tipo":"Ligação|E-mail|WhatsApp|Reunião","acao":"ação específica","urgencia":"Alta|Média|Baixa","prazo":"quando"}],"risco":"risco ou null","whatsapp_msg":"mensagem pronta para enviar no WhatsApp (informal, até 100 palavras)"}`}]})});
+      const r=await fetch(`${API}/api/ai/analyze`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:900,messages:[{role:"user",content:`Especialista em vendas B2B. Analise e retorne SOMENTE JSON válido.\nLead: ${lead.name} | ${lead.company} | Stage: ${lead.stage} | Valor: R$${lead.value.toLocaleString()} | Score: ${lead.score||50}\nFonte: ${lead.source} | Notas: ${lead.notes}\n{"score_analise":"1 frase","probabilidade":"XX%","acoes":[{"tipo":"Ligação|E-mail|WhatsApp|Reunião","acao":"ação específica","urgencia":"Alta|Média|Baixa","prazo":"quando"}],"risco":"risco ou null","whatsapp_msg":"mensagem pronta para enviar no WhatsApp (informal, até 100 palavras)"}`}]})});
       const d=await r.json();
       setAiData(JSON.parse(d.content[0].text.replace(/```json|```/g,"").trim()));
     }catch{setAiData({error:true});}
@@ -333,10 +354,12 @@ export default function CRMPro(){
   };
 
   const WhatsApp=()=>{
-    const [sel,setSel]=useState(convos[0]);const [msg,setMsg]=useState("");const [aiSug,setAiSug]=useState(null);const [aiSugL,setAiSugL]=useState(false);const endRef=useRef(null);
+    const [sel,setSel]=useState(()=>convos.find(c=>c.id===selectedConvoId)||convos[0]);const [msg,setMsg]=useState("");const [aiSug,setAiSug]=useState(null);const [aiSugL,setAiSugL]=useState(false);const endRef=useRef(null);
     useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"});},[sel]);
-    const send=()=>{if(!msg.trim())return;const nm={from:"me",text:msg,time:new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})};setConvos(prev=>prev.map(c=>c.id===sel.id?{...c,messages:[...c.messages,nm],last:msg,unread:0}:c));setSel(prev=>({...prev,messages:[...prev.messages,nm]}));setMsg("");};
-    const suggestReply=async()=>{setAiSugL(true);setAiSug(null);const last=sel.messages.filter(m=>m.from==="lead").slice(-1)[0];try{const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,messages:[{role:"user",content:`Vendedor respondendo cliente no WhatsApp. Sugira 3 respostas curtas e eficazes para: "${last?.text||"primeiro contato"}". Retorne SOMENTE JSON: {"sugestoes":["resp1","resp2","resp3"]}`}]})});const d=await r.json();setAiSug(JSON.parse(d.content[0].text.replace(/```json|```/g,"").trim()).sugestoes);}catch{setAiSug(["Oi! Obrigado pelo contato. Podemos falar agora?","Claro! Me conta mais sobre sua necessidade.","Perfeito! Vou te passar todos os detalhes."]);}setAiSugL(false);};
+    useEffect(()=>{setSel(prev=>convos.find(c=>c.id===prev?.id)||convos[0]);},[convos]);
+    useEffect(()=>{if(selectedConvoId){const c=convos.find(x=>x.id===selectedConvoId);if(c){setSel(c);}}},[selectedConvoId,convos]);
+    const send=async()=>{if(!msg.trim())return;const text=msg;setMsg("");const nm={from:"me",text,time:new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})};setConvos(prev=>prev.map(c=>c.id===sel.id?{...c,messages:[...c.messages,nm],last:text,unread:0}:c));setSel(prev=>({...prev,messages:[...prev.messages,nm]}));try{await fetch(`${API}/api/workspaces/${workspace.id}/whatsapp/send`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({phone:"55"+sel.phone.replace(/\D/g,""),message:text})});}catch(e){console.error("Erro WA:",e);}};
+    const suggestReply=async()=>{setAiSugL(true);setAiSug(null);const last=sel.messages.filter(m=>m.from==="lead").slice(-1)[0];try{const r=await fetch(`${API}/api/ai/analyze`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,messages:[{role:"user",content:`Vendedor respondendo cliente no WhatsApp. Sugira 3 respostas curtas e eficazes para: "${last?.text||"primeiro contato"}". Retorne SOMENTE JSON: {"sugestoes":["resp1","resp2","resp3"]}`}]})});const d=await r.json();setAiSug(JSON.parse(d.content[0].text.replace(/```json|```/g,"").trim()).sugestoes);}catch{setAiSug(["Oi! Obrigado pelo contato. Podemos falar agora?","Claro! Me conta mais sobre sua necessidade.","Perfeito! Vou te passar todos os detalhes."]);}setAiSugL(false);};
     return(
       <Pg title="WhatsApp" sub={`${unreadWA} mensagens não lidas · ${convos.length} conversas`}>
         <div style={{...card,padding:0,overflow:"hidden",display:"flex",height:520}}>
@@ -380,7 +403,7 @@ export default function CRMPro(){
 
   const Automations=()=>{
     const [sel,setSel]=useState(null);const [aiAuto,setAiAuto]=useState(null);const [aiL,setAiL]=useState(false);
-    const genAuto=async()=>{setAiL(true);setAiAuto(null);try{const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:600,messages:[{role:"user",content:`Crie 1 nova automação inteligente para um CRM de vendas brasileiro. Retorne SOMENTE JSON: {"name":"nome da automação","trigger":{"tipo":"sem_atividade|novo_lead|score_threshold|sem_avanco","descricao":"descrição do gatilho"},"acoes":[{"tipo":"whatsapp|criar_tarefa|notificar|score|tag","label":"o que fazer"}],"justificativa":"por que essa automação gera resultado"}`}]})});const d=await r.json();setAiAuto(JSON.parse(d.content[0].text.replace(/```json|```/g,"").trim()));}catch{setAiAuto({error:true});}setAiL(false);};
+    const genAuto=async()=>{setAiL(true);setAiAuto(null);try{const r=await fetch(`${API}/api/ai/analyze`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:600,messages:[{role:"user",content:`Crie 1 nova automação inteligente para um CRM de vendas brasileiro. Retorne SOMENTE JSON: {"name":"nome da automação","trigger":{"tipo":"sem_atividade|novo_lead|score_threshold|sem_avanco","descricao":"descrição do gatilho"},"acoes":[{"tipo":"whatsapp|criar_tarefa|notificar|score|tag","label":"o que fazer"}],"justificativa":"por que essa automação gera resultado"}`}]})});const d=await r.json();setAiAuto(JSON.parse(d.content[0].text.replace(/```json|```/g,"").trim()));}catch{setAiAuto({error:true});}setAiL(false);};
     return(
       <Pg title="Automações" sub={`${autos.filter(a=>a.active).length} ativas · ${autos.length} cadastradas`}>
         <Row mb={16}><button onClick={genAuto} disabled={aiL} style={{background:C.purple,color:"white",border:"none",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:13,fontWeight:600,marginLeft:"auto"}}>{aiL?"Gerando...":"✦ Gerar com IA"}</button></Row>
@@ -453,7 +476,7 @@ export default function CRMPro(){
       <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:200,display:"flex",justifyContent:"flex-end"}} onClick={e=>e.target===e.currentTarget&&(setSelLead(null),setAiData(null))}>
         <div style={{width:430,background:"white",height:"100%",overflowY:"auto",boxShadow:"-8px 0 32px rgba(0,0,0,0.12)"}}>
           <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.border}`,position:"sticky",top:0,background:"white",zIndex:1}}>
-            <Row mb={8}><div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:C.text}}>{l.name}</div><div style={{fontSize:12,color:C.slate,marginTop:2}}>{l.company}</div></div><div style={{display:"flex",gap:8}}><button onClick={()=>{setEditingLead(l);setEditForm({name:l.name,company:l.company||"",email:l.email||"",phone:l.phone||"",value:l.value||"",source:l.source||"Indicação",notes:l.notes||""});}} style={{background:C.blueBg,color:C.blue,border:"none",borderRadius:6,padding:"5px 10px",cursor:"pointer",fontSize:12,fontWeight:600}}>Editar</button><button onClick={()=>{setSelLead(null);setAiData(null);}} style={{background:"none",border:"none",cursor:"pointer",color:C.muted,fontSize:20}}>✕</button></div></Row>
+            <Row mb={8}><div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:C.text}}>{l.name}</div><div style={{fontSize:12,color:C.slate,marginTop:2}}>{l.company}</div></div><button onClick={()=>{setSelLead(null);setAiData(null);}} style={{background:"none",border:"none",cursor:"pointer",color:C.muted,fontSize:20}}>✕</button></Row>
             <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{badge(l.stage,cfg.c,cfg.bg,cfg.tx,true)}<ScoreBadge s={l.score||50}/></div>
           </div>
           <div style={{padding:"14px 20px",borderBottom:`1px solid ${C.light}`}}>
@@ -461,6 +484,7 @@ export default function CRMPro(){
             {l.notes&&<><div style={{fontSize:11,color:C.muted,marginBottom:4}}>Notas</div><div style={{fontSize:12,color:"#475569",lineHeight:1.6,background:C.light,borderRadius:8,padding:"10px 12px"}}>{l.notes}</div></>}
           </div>
           <div style={{padding:"14px 20px"}}>
+            {l.phone&&<button onClick={()=>{setSelLead(null);openLeadWhatsApp(l);}} style={{width:"100%",background:C.green,color:"white",border:"none",borderRadius:8,padding:"10px",fontSize:13,fontWeight:600,cursor:"pointer",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>💬 Enviar mensagem no WhatsApp</button>}
             <Row mb={10}><span style={{fontWeight:600,color:C.text,fontSize:13}}>✦ Análise de IA</span><button onClick={()=>analyzeAI(l)} disabled={aiLoading} style={{background:aiLoading?C.light:C.blueBg,color:aiLoading?C.muted:C.blue,border:"none",borderRadius:6,padding:"5px 12px",cursor:aiLoading?"wait":"pointer",fontSize:12,fontWeight:600,marginLeft:"auto"}}>{aiLoading?"Analisando...":"Gerar análise"}</button></Row>
             {aiLoading&&<div style={{textAlign:"center",padding:20,color:C.muted,fontSize:13}}>✦ Analisando com IA...</div>}
             {aiData&&!aiData.error&&(<>
@@ -519,35 +543,6 @@ export default function CRMPro(){
         {tab==="settings"    &&<Settings/>}
       </main>
       <LeadDrawer/>
-      {editingLead&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&setEditingLead(null)}>
-          <div style={{background:"white",borderRadius:16,padding:28,width:"100%",maxWidth:440,boxShadow:"0 20px 60px rgba(0,0,0,0.2)"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-              <span style={{fontSize:16,fontWeight:700,color:C.text}}>Editar Lead</span>
-              <button onClick={()=>setEditingLead(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,color:C.muted}}>✕</button>
-            </div>
-            {[{l:"Nome *",k:"name",ph:"João Silva"},{l:"Empresa",k:"company",ph:"Empresa Ltda"},{l:"E-mail",k:"email",ph:"joao@empresa.com"},{l:"Telefone",k:"phone",ph:"(47) 99999-9999"},{l:"Valor estimado (R$)",k:"value",ph:"10000"}].map(f=>(
-              <div key={f.k} style={{marginBottom:12}}>
-                <label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>{f.l}</label>
-                <input value={editForm[f.k]||""} onChange={e=>setEditForm(p=>({...p,[f.k]:e.target.value}))} placeholder={f.ph} style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",boxSizing:"border-box"}}/>
-              </div>
-            ))}
-            <div style={{marginBottom:12}}>
-              <label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Fonte</label>
-              <select value={editForm.source||"Indicação"} onChange={e=>setEditForm(p=>({...p,source:e.target.value}))} style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,background:"white",outline:"none"}}>
-                {["Indicação","Meta Ads","Google Ads","LinkedIn","Site","Evento","WhatsApp","Outro"].map(s=><option key={s}>{s}</option>)}
-              </select>
-            </div>
-            <div style={{marginBottom:20}}>
-              <label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Notas</label>
-              <textarea value={editForm.notes||""} onChange={e=>setEditForm(p=>({...p,notes:e.target.value}))} rows={3} style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",boxSizing:"border-box",resize:"vertical"}}/>
-            </div>
-            <button onClick={saveEdit} disabled={savingEdit||!editForm.name} style={{width:"100%",background:C.green,color:"white",border:"none",borderRadius:8,padding:"11px",fontSize:14,fontWeight:600,cursor:"pointer",opacity:(savingEdit||!editForm.name)?0.6:1}}>
-              {savingEdit?"Salvando...":"Salvar alterações"}
-            </button>
-          </div>
-        </div>
-      )}
       {newLeadModal&&(
         <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&setNewLeadModal(false)}>
           <div style={{background:"white",borderRadius:16,padding:28,width:"100%",maxWidth:440,boxShadow:"0 20px 60px rgba(0,0,0,0.2)"}}>
