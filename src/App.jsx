@@ -449,6 +449,28 @@ export default function CRMPro(){
 
   const LeadDrawer=()=>{
     if(!selLead)return null;const l=selLead;const cfg=SC[l.stage]||SC["Novo Lead"];
+    const [activities,setActivities]=useState([]);
+    const [loadingAct,setLoadingAct]=useState(false);
+    const [newNote,setNewNote]=useState("");
+    const [savingNote,setSavingNote]=useState(false);
+    const ACT_ICONS={CRIADO:"✦",ESTAGIO:"→",NOTA:"📝",WHATSAPP:"💬",EMAIL:"✉",LIGACAO:"📞",REUNIAO:"📅",ATRIBUIDO:"👤",SCORE:"◉"};
+    const ACT_COLORS={CRIADO:C.purple,ESTAGIO:C.blue,NOTA:C.amber,WHATSAPP:C.green,EMAIL:C.blue,LIGACAO:C.green,REUNIAO:C.purple,ATRIBUIDO:C.slate,SCORE:C.amber};
+    useEffect(()=>{
+      if(!l.id||!token)return;
+      setLoadingAct(true);
+      fetch(`${API}/api/workspaces/${workspace.id}/leads/${l.id}/activities`,{headers:{Authorization:`Bearer ${token}`}})
+        .then(r=>r.json()).then(d=>{if(Array.isArray(d))setActivities(d);}).catch(()=>{}).finally(()=>setLoadingAct(false));
+    },[l.id]);
+    const saveNote=async()=>{
+      if(!newNote.trim())return;
+      setSavingNote(true);
+      try{
+        const r=await fetch(`${API}/api/workspaces/${workspace.id}/leads/${l.id}/activities`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({type:"NOTA",description:newNote})});
+        const d=await r.json();
+        if(r.ok){setActivities(prev=>[d,...prev]);setNewNote("");}
+      }catch{}
+      setSavingNote(false);
+    };
     return(
       <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:200,display:"flex",justifyContent:"flex-end"}} onClick={e=>e.target===e.currentTarget&&(setSelLead(null),setAiData(null))}>
         <div style={{width:430,background:"white",height:"100%",overflowY:"auto",boxShadow:"-8px 0 32px rgba(0,0,0,0.12)"}}>
@@ -460,7 +482,8 @@ export default function CRMPro(){
             <Grid cols={2} gap={10} mb={12}>{[{l:"Valor",v:fmt(l.value),c:C.green},{l:"Fonte",v:l.source||"—",c:C.text},{l:"Telefone",v:l.phone||"—",c:C.text},{l:"E-mail",v:l.email||"—",c:C.text}].map(x=><div key={x.l}><div style={{fontSize:11,color:C.muted,marginBottom:2}}>{x.l}</div><div style={{fontSize:13,fontWeight:500,color:x.c}}>{x.v}</div></div>)}</Grid>
             {l.notes&&<><div style={{fontSize:11,color:C.muted,marginBottom:4}}>Notas</div><div style={{fontSize:12,color:"#475569",lineHeight:1.6,background:C.light,borderRadius:8,padding:"10px 12px"}}>{l.notes}</div></>}
           </div>
-          <div style={{padding:"14px 20px"}}>
+          <div style={{padding:"14px 20px",borderBottom:`1px solid ${C.light}`}}>
+            {l.phone&&<button onClick={()=>{setSelLead(null);openLeadWhatsApp(l);}} style={{width:"100%",background:C.green,color:"white",border:"none",borderRadius:8,padding:"10px",fontSize:13,fontWeight:600,cursor:"pointer",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>💬 Enviar mensagem no WhatsApp</button>}
             <Row mb={10}><span style={{fontWeight:600,color:C.text,fontSize:13}}>✦ Análise de IA</span><button onClick={()=>analyzeAI(l)} disabled={aiLoading} style={{background:aiLoading?C.light:C.blueBg,color:aiLoading?C.muted:C.blue,border:"none",borderRadius:6,padding:"5px 12px",cursor:aiLoading?"wait":"pointer",fontSize:12,fontWeight:600,marginLeft:"auto"}}>{aiLoading?"Analisando...":"Gerar análise"}</button></Row>
             {aiLoading&&<div style={{textAlign:"center",padding:20,color:C.muted,fontSize:13}}>✦ Analisando com IA...</div>}
             {aiData&&!aiData.error&&(<>
@@ -470,6 +493,27 @@ export default function CRMPro(){
               {aiData.whatsapp_msg&&<div style={{background:C.greenBg,borderRadius:8,padding:11,marginTop:8}}><div style={{fontSize:11,fontWeight:600,color:C.greenTx,marginBottom:4}}>💬 Mensagem sugerida para WhatsApp</div><div style={{fontSize:12,color:C.text,lineHeight:1.6}}>{aiData.whatsapp_msg}</div><button onClick={()=>setTab("whatsapp")} style={{marginTop:8,background:C.green,color:"white",border:"none",borderRadius:6,padding:"5px 12px",cursor:"pointer",fontSize:11,fontWeight:600}}>Abrir WhatsApp</button></div>}
             </>)}
             {!aiLoading&&!aiData&&<div style={{border:`2px dashed ${C.border}`,borderRadius:8,padding:20,textAlign:"center",color:C.muted,fontSize:12}}>Clique em "Gerar análise" para receber recomendações de IA para este lead</div>}
+          </div>
+          <div style={{padding:"14px 20px"}}>
+            <div style={{fontWeight:600,color:C.text,fontSize:13,marginBottom:12}}>📋 Histórico</div>
+            <div style={{display:"flex",gap:8,marginBottom:14}}>
+              <textarea value={newNote} onChange={e=>setNewNote(e.target.value)} placeholder="Adicionar nota..." rows={2} style={{flex:1,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:12,outline:"none",resize:"none"}}/>
+              <button onClick={saveNote} disabled={savingNote||!newNote.trim()} style={{background:C.green,color:"white",border:"none",borderRadius:8,padding:"0 14px",cursor:"pointer",fontSize:12,fontWeight:600,opacity:(savingNote||!newNote.trim())?0.6:1}}>+</button>
+            </div>
+            {loadingAct&&<div style={{textAlign:"center",padding:16,color:C.muted,fontSize:12}}>Carregando...</div>}
+            {!loadingAct&&activities.length===0&&<div style={{textAlign:"center",padding:16,color:C.muted,fontSize:12}}>Nenhuma atividade ainda</div>}
+            <div style={{display:"flex",flexDirection:"column",gap:0}}>
+              {activities.map((a,i)=>(
+                <div key={a.id} style={{display:"flex",gap:10,paddingBottom:14,position:"relative"}}>
+                  {i<activities.length-1&&<div style={{position:"absolute",left:13,top:24,bottom:0,width:1,background:C.border}}/>}
+                  <div style={{width:26,height:26,borderRadius:"50%",background:(ACT_COLORS[a.type]||C.slate)+"20",border:`1.5px solid ${ACT_COLORS[a.type]||C.slate}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,flexShrink:0,zIndex:1}}>{ACT_ICONS[a.type]||"•"}</div>
+                  <div style={{flex:1,paddingTop:3}}>
+                    <div style={{fontSize:12,color:C.text,lineHeight:1.5}}>{a.description}</div>
+                    <div style={{fontSize:10,color:C.muted,marginTop:2}}>{a.user?.name&&`${a.user.name} · `}{new Date(a.createdAt).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
