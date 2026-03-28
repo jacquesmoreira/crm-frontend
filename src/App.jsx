@@ -172,6 +172,7 @@ export default function CRMPro(){
   const [newLeadModal,setNewLeadModal]=useState(false);
   const [newLeadForm,setNewLeadForm]=useState({name:"",company:"",email:"",phone:"",value:"",source:"Indicação",notes:""});
   const [savingLead,setSavingLead]=useState(false);
+  const [customFields,setCustomFields]=useState([]);
   const [editingLead,setEditingLead]=useState(null);
   const [editForm,setEditForm]=useState({});
   const [savingEdit,setSavingEdit]=useState(false);
@@ -196,6 +197,8 @@ export default function CRMPro(){
     if(!workspace||!token)return;
     fetch(`${API}/api/workspaces/${workspace.id}/leads`,{headers:{Authorization:`Bearer ${token}`}})
       .then(r=>r.json()).then(data=>{if(Array.isArray(data)&&data.length>0)setLeads(data);}).catch(()=>{});
+    fetch(`${API}/api/workspaces/${workspace.id}/custom-fields`,{headers:{Authorization:`Bearer ${token}`}})
+      .then(r=>r.json()).then(data=>{if(Array.isArray(data))setCustomFields(data);}).catch(()=>{});
   },[workspace]);
 
   const saveLead=async()=>{
@@ -435,6 +438,23 @@ export default function CRMPro(){
 
   const Settings=()=>{
     const members=[{name:"Ana Silva",email:"ana@empresa.com",role:"Admin",avatar:"AS",c:C.green},{name:"Pedro Costa",email:"pedro@empresa.com",role:"Gestor",avatar:"PC",c:C.blue},{name:"Lara Mendes",email:"lara@empresa.com",role:"Vendedor",avatar:"LM",c:C.amber}];
+    const [newField,setNewField]=useState({name:"",type:"text",options:""});
+    const [savingField,setSavingField]=useState(false);
+    const addField=async()=>{
+      if(!newField.name.trim())return;
+      setSavingField(true);
+      try{
+        const payload={name:newField.name,type:newField.type,options:newField.type==="select"?newField.options.split(",").map(o=>o.trim()).filter(Boolean):null};
+        const r=await fetch(`${API}/api/workspaces/${workspace.id}/custom-fields`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify(payload)});
+        const d=await r.json();
+        if(r.ok){setCustomFields(prev=>[...prev,d]);setNewField({name:"",type:"text",options:""});}
+      }catch{}
+      setSavingField(false);
+    };
+    const delField=async(id)=>{
+      await fetch(`${API}/api/workspaces/${workspace.id}/custom-fields/${id}`,{method:"DELETE",headers:{Authorization:`Bearer ${token}`}});
+      setCustomFields(prev=>prev.filter(f=>f.id!==id));
+    };
     return(
       <Pg title="Configurações" sub="Workspace e integrações">
         <Grid cols={2} gap={14}>
@@ -442,6 +462,25 @@ export default function CRMPro(){
           <div style={card}><STitle>Equipe</STitle><div style={{marginTop:12,display:"flex",flexDirection:"column",gap:10}}>{members.map((m,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:10}}><div style={{width:34,height:34,borderRadius:"50%",background:m.c,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"white",flexShrink:0}}>{m.avatar}</div><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:C.text}}>{m.name}</div><div style={{fontSize:11,color:C.muted}}>{m.email}</div></div><span style={{background:C.light,color:C.slate,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:500}}>{m.role}</span></div>)}<button style={{marginTop:4,background:"none",border:`1px dashed ${C.border}`,borderRadius:8,padding:"8px",fontSize:12,color:C.slate,cursor:"pointer"}}>+ Convidar membro</button></div></div>
           <div style={card}><STitle>Integrações</STitle><div style={{marginTop:12,display:"flex",flexDirection:"column",gap:10}}>{[{n:"Meta Ads",s:"Conectado",ok:true,icon:"📢"},{n:"WhatsApp",s:"Conectado",ok:true,icon:"💬"},{n:"Google Ads",s:"Desconectado",ok:false,icon:"🔍"},{n:"RD Station",s:"Desconectado",ok:false,icon:"📧"},{n:"Stripe/Pix",s:"Desconectado",ok:false,icon:"💳"}].map((itg,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:18,width:28}}>{itg.icon}</span><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:C.text}}>{itg.n}</div></div><span style={{background:itg.ok?C.greenBg:C.light,color:itg.ok?C.greenTx:C.slate,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:500}}>{itg.s}</span>{!itg.ok&&<button style={{background:C.blueBg,color:C.blue,border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11,fontWeight:600}}>Conectar</button>}</div>)}</div></div>
           <div style={card}><STitle>API & Webhooks</STitle><div style={{marginTop:12}}><div style={{fontSize:12,color:C.slate,marginBottom:6}}>Webhook URL (Meta Ads)</div><div style={{background:C.light,borderRadius:8,padding:"10px 12px",fontFamily:"monospace",fontSize:11,color:C.text}}>{API}/api/webhooks/meta</div></div></div>
+          <div style={{...card,gridColumn:"1/-1"}}><STitle>Campos Personalizados</STitle>
+            <div style={{display:"flex",gap:8,marginTop:12,marginBottom:16,flexWrap:"wrap"}}>
+              <input value={newField.name} onChange={e=>setNewField(p=>({...p,name:e.target.value}))} placeholder="Nome do campo" style={{flex:1,minWidth:140,border:`1px solid ${C.border}`,borderRadius:8,padding:"7px 12px",fontSize:13,outline:"none"}}/>
+              <select value={newField.type} onChange={e=>setNewField(p=>({...p,type:e.target.value}))} style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"7px 12px",fontSize:13,background:"white",outline:"none"}}>
+                <option value="text">Texto</option><option value="number">Número</option><option value="date">Data</option><option value="select">Seleção</option>
+              </select>
+              {newField.type==="select"&&<input value={newField.options} onChange={e=>setNewField(p=>({...p,options:e.target.value}))} placeholder="Opções separadas por vírgula" style={{flex:2,minWidth:180,border:`1px solid ${C.border}`,borderRadius:8,padding:"7px 12px",fontSize:13,outline:"none"}}/>}
+              <button onClick={addField} disabled={savingField||!newField.name.trim()} style={{background:C.green,color:"white",border:"none",borderRadius:8,padding:"7px 16px",cursor:"pointer",fontSize:13,fontWeight:600,opacity:(savingField||!newField.name.trim())?0.6:1}}>+ Adicionar</button>
+            </div>
+            {customFields.length===0&&<div style={{textAlign:"center",padding:16,color:C.muted,fontSize:12}}>Nenhum campo personalizado criado</div>}
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              {customFields.map(f=><div key={f.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:C.light,borderRadius:8}}>
+                <span style={{fontSize:13,fontWeight:500,color:C.text,flex:1}}>{f.name}</span>
+                <span style={{background:C.border,color:C.slate,borderRadius:4,padding:"1px 8px",fontSize:11}}>{f.type}</span>
+                {f.options&&<span style={{fontSize:11,color:C.muted}}>{(f.options||[]).join(", ")}</span>}
+                <button onClick={()=>delField(f.id)} style={{background:"none",border:"none",cursor:"pointer",color:C.red,fontSize:14,padding:"0 4px"}}>✕</button>
+              </div>)}
+            </div>
+          </div>
         </Grid>
       </Pg>
     );
@@ -481,6 +520,7 @@ export default function CRMPro(){
           <div style={{padding:"14px 20px",borderBottom:`1px solid ${C.light}`}}>
             <Grid cols={2} gap={10} mb={12}>{[{l:"Valor",v:fmt(l.value),c:C.green},{l:"Fonte",v:l.source||"—",c:C.text},{l:"Telefone",v:l.phone||"—",c:C.text},{l:"E-mail",v:l.email||"—",c:C.text}].map(x=><div key={x.l}><div style={{fontSize:11,color:C.muted,marginBottom:2}}>{x.l}</div><div style={{fontSize:13,fontWeight:500,color:x.c}}>{x.v}</div></div>)}</Grid>
             {l.notes&&<><div style={{fontSize:11,color:C.muted,marginBottom:4}}>Notas</div><div style={{fontSize:12,color:"#475569",lineHeight:1.6,background:C.light,borderRadius:8,padding:"10px 12px"}}>{l.notes}</div></>}
+            {customFields.length>0&&<div style={{marginTop:12}}><div style={{fontSize:11,color:C.muted,marginBottom:8}}>Campos personalizados</div><Grid cols={2} gap={8}>{customFields.map(f=><div key={f.id}><div style={{fontSize:11,color:C.muted,marginBottom:2}}>{f.name}</div><div style={{fontSize:13,fontWeight:500,color:C.text}}>{(l.metadata&&l.metadata[f.id])||"—"}</div></div>)}</Grid></div>}
           </div>
           <div style={{padding:"14px 20px",borderBottom:`1px solid ${C.light}`}}>
             {l.phone&&<button onClick={()=>{setSelLead(null);openLeadWhatsApp(l);}} style={{width:"100%",background:C.green,color:"white",border:"none",borderRadius:8,padding:"10px",fontSize:13,fontWeight:600,cursor:"pointer",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>💬 Enviar mensagem no WhatsApp</button>}
@@ -586,6 +626,7 @@ export default function CRMPro(){
               <label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Notas</label>
               <textarea value={editForm.notes||""} onChange={e=>setEditForm(p=>({...p,notes:e.target.value}))} rows={3} style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",boxSizing:"border-box",resize:"vertical"}}/>
             </div>
+            {customFields.length>0&&<><div style={{fontSize:12,fontWeight:600,color:C.text,marginBottom:10}}>Campos personalizados</div>{customFields.map(f=><div key={f.id} style={{marginBottom:12}}><label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>{f.name}</label>{f.type==="select"?<select value={(editForm.metadata||{})[f.id]||""} onChange={e=>setEditForm(p=>({...p,metadata:{...(p.metadata||{}),[f.id]:e.target.value}}))} style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,background:"white",outline:"none"}}><option value="">—</option>{(f.options||[]).map(o=><option key={o}>{o}</option>)}</select>:<input type={f.type==="number"?"number":f.type==="date"?"date":"text"} value={(editForm.metadata||{})[f.id]||""} onChange={e=>setEditForm(p=>({...p,metadata:{...(p.metadata||{}),[f.id]:e.target.value}}))} style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",boxSizing:"border-box"}}/>}</div>)}</>}
             <button onClick={saveEdit} disabled={savingEdit||!editForm.name} style={{width:"100%",background:C.green,color:"white",border:"none",borderRadius:8,padding:"11px",fontSize:14,fontWeight:600,cursor:"pointer",opacity:(savingEdit||!editForm.name)?0.6:1}}>
               {savingEdit?"Salvando...":"Salvar alterações"}
             </button>
