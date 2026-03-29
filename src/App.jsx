@@ -178,6 +178,7 @@ export default function CRMPro(){
   const [customFields,setCustomFields]=useState([]);
   const [pipelines,setPipelines]=useState([]);
   const [activePipeline,setActivePipeline]=useState(null);
+  const [emailModal,setEmailModal]=useState(null);
   const [editingLead,setEditingLead]=useState(null);
   const [editForm,setEditForm]=useState({});
   const [savingEdit,setSavingEdit]=useState(false);
@@ -516,6 +517,22 @@ export default function CRMPro(){
     const members=[{name:"Ana Silva",email:"ana@empresa.com",role:"Admin",avatar:"AS",c:C.green},{name:"Pedro Costa",email:"pedro@empresa.com",role:"Gestor",avatar:"PC",c:C.blue},{name:"Lara Mendes",email:"lara@empresa.com",role:"Vendedor",avatar:"LM",c:C.amber}];
     const [newField,setNewField]=useState({name:"",type:"text",options:""});
     const [savingField,setSavingField]=useState(false);
+    const [smtpForm,setSmtpForm]=useState({host:"",port:"465",user:"",pass:"",fromName:""});
+    const [savingSmtp,setSavingSmtp]=useState(false);
+    const [smtpMsg,setSmtpMsg]=useState("");
+    useEffect(()=>{
+      fetch(`${API}/api/workspaces/${workspace.id}/email/config`,{headers:{Authorization:`Bearer ${token}`}})
+        .then(r=>r.json()).then(d=>{if(d.host)setSmtpForm({host:d.host,port:String(d.port||465),user:d.user,pass:"",fromName:d.fromName});}).catch(()=>{});
+    },[]);
+    const saveSmtp=async()=>{
+      setSavingSmtp(true);setSmtpMsg("");
+      try{
+        const r=await fetch(`${API}/api/workspaces/${workspace.id}/email/config`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify(smtpForm)});
+        if(r.ok)setSmtpMsg("✓ Configuração salva com sucesso!");
+        else setSmtpMsg("✗ Erro ao salvar");
+      }catch{setSmtpMsg("✗ Erro ao salvar");}
+      setSavingSmtp(false);
+    };
     const addField=async()=>{
       if(!newField.name.trim())return;
       setSavingField(true);
@@ -538,6 +555,20 @@ export default function CRMPro(){
           <div style={card}><STitle>Equipe</STitle><div style={{marginTop:12,display:"flex",flexDirection:"column",gap:10}}>{members.map((m,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:10}}><div style={{width:34,height:34,borderRadius:"50%",background:m.c,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"white",flexShrink:0}}>{m.avatar}</div><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:C.text}}>{m.name}</div><div style={{fontSize:11,color:C.muted}}>{m.email}</div></div><span style={{background:C.light,color:C.slate,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:500}}>{m.role}</span></div>)}<button style={{marginTop:4,background:"none",border:`1px dashed ${C.border}`,borderRadius:8,padding:"8px",fontSize:12,color:C.slate,cursor:"pointer"}}>+ Convidar membro</button></div></div>
           <div style={card}><STitle>Integrações</STitle><div style={{marginTop:12,display:"flex",flexDirection:"column",gap:10}}>{[{n:"Meta Ads",s:"Conectado",ok:true,icon:"📢"},{n:"WhatsApp",s:"Conectado",ok:true,icon:"💬"},{n:"Google Ads",s:"Desconectado",ok:false,icon:"🔍"},{n:"RD Station",s:"Desconectado",ok:false,icon:"📧"},{n:"Stripe/Pix",s:"Desconectado",ok:false,icon:"💳"}].map((itg,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:18,width:28}}>{itg.icon}</span><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:C.text}}>{itg.n}</div></div><span style={{background:itg.ok?C.greenBg:C.light,color:itg.ok?C.greenTx:C.slate,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:500}}>{itg.s}</span>{!itg.ok&&<button style={{background:C.blueBg,color:C.blue,border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11,fontWeight:600}}>Conectar</button>}</div>)}</div></div>
           <div style={card}><STitle>API & Webhooks</STitle><div style={{marginTop:12}}><div style={{fontSize:12,color:C.slate,marginBottom:6}}>Webhook URL (Meta Ads)</div><div style={{background:C.light,borderRadius:8,padding:"10px 12px",fontFamily:"monospace",fontSize:11,color:C.text}}>{API}/api/webhooks/meta</div></div></div>
+          <div style={{...card,gridColumn:"1/-1"}}><STitle>E-mail (SMTP)</STitle>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:12}}>
+              <div><label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Servidor SMTP</label><input value={smtpForm.host} onChange={e=>setSmtpForm(p=>({...p,host:e.target.value}))} placeholder="smtp.gmail.com" style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"7px 12px",fontSize:13,outline:"none",boxSizing:"border-box"}}/></div>
+              <div><label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Porta</label><input value={smtpForm.port} onChange={e=>setSmtpForm(p=>({...p,port:e.target.value}))} placeholder="465" style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"7px 12px",fontSize:13,outline:"none",boxSizing:"border-box"}}/></div>
+              <div><label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Usuário (e-mail)</label><input value={smtpForm.user} onChange={e=>setSmtpForm(p=>({...p,user:e.target.value}))} placeholder="contato@suaempresa.com" style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"7px 12px",fontSize:13,outline:"none",boxSizing:"border-box"}}/></div>
+              <div><label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Senha</label><input type="password" value={smtpForm.pass} onChange={e=>setSmtpForm(p=>({...p,pass:e.target.value}))} placeholder="••••••••" style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"7px 12px",fontSize:13,outline:"none",boxSizing:"border-box"}}/></div>
+              <div style={{gridColumn:"1/-1"}}><label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Nome do remetente</label><input value={smtpForm.fromName} onChange={e=>setSmtpForm(p=>({...p,fromName:e.target.value}))} placeholder="Minha Empresa" style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"7px 12px",fontSize:13,outline:"none",boxSizing:"border-box"}}/></div>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginTop:12}}>
+              <button onClick={saveSmtp} disabled={savingSmtp} style={{background:C.blue,color:"white",border:"none",borderRadius:8,padding:"8px 20px",cursor:"pointer",fontSize:13,fontWeight:600,opacity:savingSmtp?0.6:1}}>{savingSmtp?"Salvando...":"Salvar configuração"}</button>
+              {smtpMsg&&<span style={{fontSize:12,color:smtpMsg.startsWith("✓")?C.green:C.red,fontWeight:500}}>{smtpMsg}</span>}
+            </div>
+            <div style={{marginTop:10,fontSize:11,color:C.muted}}>Para Gmail: use uma <strong>senha de app</strong> (não a senha normal). Ative a verificação em duas etapas e gere em: Conta Google → Segurança → Senhas de app.</div>
+          </div>
           <div style={{...card,gridColumn:"1/-1"}}><STitle>Campos Personalizados</STitle>
             <div style={{display:"flex",gap:8,marginTop:12,marginBottom:16,flexWrap:"wrap"}}>
               <input value={newField.name} onChange={e=>setNewField(p=>({...p,name:e.target.value}))} placeholder="Nome do campo" style={{flex:1,minWidth:140,border:`1px solid ${C.border}`,borderRadius:8,padding:"7px 12px",fontSize:13,outline:"none"}}/>
@@ -599,7 +630,8 @@ export default function CRMPro(){
             {customFields.length>0&&<div style={{marginTop:12}}><div style={{fontSize:11,color:C.muted,marginBottom:8}}>Campos personalizados</div><Grid cols={2} gap={8}>{customFields.map(f=><div key={f.id}><div style={{fontSize:11,color:C.muted,marginBottom:2}}>{f.name}</div><div style={{fontSize:13,fontWeight:500,color:C.text}}>{(l.metadata&&l.metadata[f.id])||"—"}</div></div>)}</Grid></div>}
           </div>
           <div style={{padding:"14px 20px",borderBottom:`1px solid ${C.light}`}}>
-            {l.phone&&<button onClick={()=>{setSelLead(null);openLeadWhatsApp(l);}} style={{width:"100%",background:C.green,color:"white",border:"none",borderRadius:8,padding:"10px",fontSize:13,fontWeight:600,cursor:"pointer",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>💬 Enviar mensagem no WhatsApp</button>}
+            {l.phone&&<button onClick={()=>{setSelLead(null);openLeadWhatsApp(l);}} style={{width:"100%",background:C.green,color:"white",border:"none",borderRadius:8,padding:"10px",fontSize:13,fontWeight:600,cursor:"pointer",marginBottom:8,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>💬 Enviar mensagem no WhatsApp</button>}
+            {l.email&&<button onClick={()=>setEmailModal(l)} style={{width:"100%",background:C.blueBg,color:C.blue,border:`1px solid ${C.blue}`,borderRadius:8,padding:"10px",fontSize:13,fontWeight:600,cursor:"pointer",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>✉ Enviar E-mail</button>}
             <Row mb={10}><span style={{fontWeight:600,color:C.text,fontSize:13}}>✦ Análise de IA</span><button onClick={()=>analyzeAI(l)} disabled={aiLoading} style={{background:aiLoading?C.light:C.blueBg,color:aiLoading?C.muted:C.blue,border:"none",borderRadius:6,padding:"5px 12px",cursor:aiLoading?"wait":"pointer",fontSize:12,fontWeight:600,marginLeft:"auto"}}>{aiLoading?"Analisando...":"Gerar análise"}</button></Row>
             {aiLoading&&<div style={{textAlign:"center",padding:20,color:C.muted,fontSize:13}}>✦ Analisando com IA...</div>}
             {aiData&&!aiData.error&&(<>
@@ -709,6 +741,36 @@ export default function CRMPro(){
           </div>
         </div>
       )}
+      {emailModal&&(()=>{
+        const [subj,setSubj]=useState("");const [body,setBody]=useState("");const [sending,setSending]=useState(false);const [msg,setMsg]=useState("");
+        const send=async()=>{
+          setSending(true);setMsg("");
+          try{
+            const r=await fetch(`${API}/api/workspaces/${workspace.id}/email/send`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({to:emailModal.email,subject:subj,body,leadId:emailModal.id})});
+            const d=await r.json();
+            if(r.ok){setMsg("✓ E-mail enviado!");setTimeout(()=>setEmailModal(null),1500);}
+            else setMsg("✗ "+d.error);
+          }catch{setMsg("✗ Erro ao enviar");}
+          setSending(false);
+        };
+        return(
+          <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&setEmailModal(null)}>
+            <div style={{background:"white",borderRadius:16,padding:28,width:"100%",maxWidth:500,boxShadow:"0 20px 60px rgba(0,0,0,0.2)"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+                <span style={{fontSize:16,fontWeight:700,color:C.text}}>✉ Enviar E-mail</span>
+                <button onClick={()=>setEmailModal(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,color:C.muted}}>✕</button>
+              </div>
+              <div style={{marginBottom:12}}><label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Para</label><input value={emailModal.email} readOnly style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:C.light}}/></div>
+              <div style={{marginBottom:12}}><label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Assunto</label><input value={subj} onChange={e=>setSubj(e.target.value)} placeholder="Assunto do e-mail" style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",boxSizing:"border-box"}}/></div>
+              <div style={{marginBottom:20}}><label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Mensagem</label><textarea value={body} onChange={e=>setBody(e.target.value)} rows={6} placeholder="Escreva sua mensagem..." style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",boxSizing:"border-box",resize:"vertical"}}/></div>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <button onClick={send} disabled={sending||!subj.trim()||!body.trim()} style={{background:C.blue,color:"white",border:"none",borderRadius:8,padding:"11px 24px",cursor:"pointer",fontSize:14,fontWeight:600,opacity:(sending||!subj.trim()||!body.trim())?0.6:1}}>{sending?"Enviando...":"Enviar"}</button>
+                {msg&&<span style={{fontSize:13,color:msg.startsWith("✓")?C.green:C.red,fontWeight:500}}>{msg}</span>}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       {newLeadModal&&(
         <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&setNewLeadModal(false)}>
           <div style={{background:"white",borderRadius:16,padding:28,width:"100%",maxWidth:440,boxShadow:"0 20px 60px rgba(0,0,0,0.2)"}}>
