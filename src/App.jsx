@@ -528,8 +528,7 @@ export default function CRMPro(){
       setSavingSmtp(true);setSmtpMsg("");
       try{
         const r=await fetch(`${API}/api/workspaces/${workspace.id}/email/config`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify(smtpForm)});
-        if(r.ok)setSmtpMsg("✓ Configuração salva com sucesso!");
-        else setSmtpMsg("✗ Erro ao salvar");
+        if(r.ok)setSmtpMsg("✓ Configuração salva!");else setSmtpMsg("✗ Erro ao salvar");
       }catch{setSmtpMsg("✗ Erro ao salvar");}
       setSavingSmtp(false);
     };
@@ -567,7 +566,7 @@ export default function CRMPro(){
               <button onClick={saveSmtp} disabled={savingSmtp} style={{background:C.blue,color:"white",border:"none",borderRadius:8,padding:"8px 20px",cursor:"pointer",fontSize:13,fontWeight:600,opacity:savingSmtp?0.6:1}}>{savingSmtp?"Salvando...":"Salvar configuração"}</button>
               {smtpMsg&&<span style={{fontSize:12,color:smtpMsg.startsWith("✓")?C.green:C.red,fontWeight:500}}>{smtpMsg}</span>}
             </div>
-            <div style={{marginTop:10,fontSize:11,color:C.muted}}>Para Gmail: use uma <strong>senha de app</strong> (não a senha normal). Ative a verificação em duas etapas e gere em: Conta Google → Segurança → Senhas de app.</div>
+            <div style={{marginTop:10,fontSize:11,color:C.muted}}>Para Gmail: use uma <strong>senha de app</strong>. Para domínio próprio: use as credenciais SMTP do seu provedor (Hostinger, Locaweb, etc).</div>
           </div>
           <div style={{...card,gridColumn:"1/-1"}}><STitle>Campos Personalizados</STitle>
             <div style={{display:"flex",gap:8,marginTop:12,marginBottom:16,flexWrap:"wrap"}}>
@@ -668,6 +667,40 @@ export default function CRMPro(){
     );
   };
 
+  const EmailModal=()=>{
+    const [subj,setSubj]=useState("");
+    const [body,setBody]=useState("");
+    const [sending,setSending]=useState(false);
+    const [msg,setMsg]=useState("");
+    const send=async()=>{
+      setSending(true);setMsg("");
+      try{
+        const r=await fetch(`${API}/api/workspaces/${workspace.id}/email/send`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({to:emailModal.email,subject:subj,body,leadId:emailModal.id})});
+        const d=await r.json();
+        if(r.ok){setMsg("✓ E-mail enviado!");setTimeout(()=>setEmailModal(null),1500);}
+        else setMsg("✗ "+(d.error||"Erro"));
+      }catch{setMsg("✗ Erro ao enviar");}
+      setSending(false);
+    };
+    return(
+      <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&setEmailModal(null)}>
+        <div style={{background:"white",borderRadius:16,padding:28,width:"100%",maxWidth:500,boxShadow:"0 20px 60px rgba(0,0,0,0.2)"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+            <span style={{fontSize:16,fontWeight:700,color:C.text}}>✉ Enviar E-mail</span>
+            <button onClick={()=>setEmailModal(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,color:C.muted}}>✕</button>
+          </div>
+          <div style={{marginBottom:12}}><label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Para</label><input value={emailModal.email} readOnly style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:C.light}}/></div>
+          <div style={{marginBottom:12}}><label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Assunto</label><input value={subj} onChange={e=>setSubj(e.target.value)} placeholder="Assunto do e-mail" style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",boxSizing:"border-box"}}/></div>
+          <div style={{marginBottom:20}}><label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Mensagem</label><textarea value={body} onChange={e=>setBody(e.target.value)} rows={6} placeholder="Escreva sua mensagem..." style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",boxSizing:"border-box",resize:"vertical"}}/></div>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <button onClick={send} disabled={sending||!subj.trim()||!body.trim()} style={{background:C.blue,color:"white",border:"none",borderRadius:8,padding:"11px 24px",cursor:"pointer",fontSize:14,fontWeight:600,opacity:(sending||!subj.trim()||!body.trim())?0.6:1}}>{sending?"Enviando...":"Enviar"}</button>
+            {msg&&<span style={{fontSize:13,color:msg.startsWith("✓")?C.green:C.red,fontWeight:500}}>{msg}</span>}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return(
     <div style={{display:"flex",height:"100vh",fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif',background:C.light,overflow:"hidden"}}>
       <div style={{width:200,background:C.dark,display:"flex",flexDirection:"column",flexShrink:0}}>
@@ -711,6 +744,7 @@ export default function CRMPro(){
         {tab==="settings"    &&<Settings/>}
       </main>
       <LeadDrawer/>
+      {emailModal&&<EmailModal/>}
       {editingLead&&(
         <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&setEditingLead(null)}>
           <div style={{background:"white",borderRadius:16,padding:28,width:"100%",maxWidth:440,boxShadow:"0 20px 60px rgba(0,0,0,0.2)",maxHeight:"90vh",overflowY:"auto"}}>
@@ -741,36 +775,6 @@ export default function CRMPro(){
           </div>
         </div>
       )}
-      {emailModal&&(()=>{
-        const [subj,setSubj]=useState("");const [body,setBody]=useState("");const [sending,setSending]=useState(false);const [msg,setMsg]=useState("");
-        const send=async()=>{
-          setSending(true);setMsg("");
-          try{
-            const r=await fetch(`${API}/api/workspaces/${workspace.id}/email/send`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({to:emailModal.email,subject:subj,body,leadId:emailModal.id})});
-            const d=await r.json();
-            if(r.ok){setMsg("✓ E-mail enviado!");setTimeout(()=>setEmailModal(null),1500);}
-            else setMsg("✗ "+d.error);
-          }catch{setMsg("✗ Erro ao enviar");}
-          setSending(false);
-        };
-        return(
-          <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&setEmailModal(null)}>
-            <div style={{background:"white",borderRadius:16,padding:28,width:"100%",maxWidth:500,boxShadow:"0 20px 60px rgba(0,0,0,0.2)"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-                <span style={{fontSize:16,fontWeight:700,color:C.text}}>✉ Enviar E-mail</span>
-                <button onClick={()=>setEmailModal(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,color:C.muted}}>✕</button>
-              </div>
-              <div style={{marginBottom:12}}><label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Para</label><input value={emailModal.email} readOnly style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:C.light}}/></div>
-              <div style={{marginBottom:12}}><label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Assunto</label><input value={subj} onChange={e=>setSubj(e.target.value)} placeholder="Assunto do e-mail" style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",boxSizing:"border-box"}}/></div>
-              <div style={{marginBottom:20}}><label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Mensagem</label><textarea value={body} onChange={e=>setBody(e.target.value)} rows={6} placeholder="Escreva sua mensagem..." style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",boxSizing:"border-box",resize:"vertical"}}/></div>
-              <div style={{display:"flex",alignItems:"center",gap:12}}>
-                <button onClick={send} disabled={sending||!subj.trim()||!body.trim()} style={{background:C.blue,color:"white",border:"none",borderRadius:8,padding:"11px 24px",cursor:"pointer",fontSize:14,fontWeight:600,opacity:(sending||!subj.trim()||!body.trim())?0.6:1}}>{sending?"Enviando...":"Enviar"}</button>
-                {msg&&<span style={{fontSize:13,color:msg.startsWith("✓")?C.green:C.red,fontWeight:500}}>{msg}</span>}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
       {newLeadModal&&(
         <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&setNewLeadModal(false)}>
           <div style={{background:"white",borderRadius:16,padding:28,width:"100%",maxWidth:440,boxShadow:"0 20px 60px rgba(0,0,0,0.2)"}}>
