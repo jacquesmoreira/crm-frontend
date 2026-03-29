@@ -617,7 +617,7 @@ export default function CRMPro(){
       setSavingNote(false);
     };
     return(
-      <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:200,display:"flex",justifyContent:"flex-end"}} onClick={e=>e.target===e.currentTarget&&(setSelLead(null),setAiData(null))}>
+      <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:200,display:"flex",justifyContent:"flex-end"}} onClick={e=>e.target===e.currentTarget&&!sending&&setEmailModal(null)}>
         <div style={{width:430,background:"white",height:"100%",overflowY:"auto",boxShadow:"-8px 0 32px rgba(0,0,0,0.12)"}}>
           <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.border}`,position:"sticky",top:0,background:"white",zIndex:1}}>
             <Row mb={8}><div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:C.text}}>{l.name}</div><div style={{fontSize:12,color:C.slate,marginTop:2}}>{l.company}</div></div><div style={{display:"flex",gap:8}}><button onClick={()=>{setEditingLead(l);setEditForm({name:l.name,company:l.company||"",email:l.email||"",phone:l.phone||"",value:l.value||"",source:l.source||"Indicação",notes:l.notes||""});}} style={{background:C.blueBg,color:C.blue,border:"none",borderRadius:6,padding:"5px 10px",cursor:"pointer",fontSize:12,fontWeight:600}}>Editar</button><button onClick={()=>{setSelLead(null);setAiData(null);}} style={{background:"none",border:"none",cursor:"pointer",color:C.muted,fontSize:20}}>✕</button></div></Row>
@@ -683,7 +683,7 @@ export default function CRMPro(){
       setSending(false);
     };
     return(
-      <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&setEmailModal(null)}>
+      <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&!sending&&setEmailModal(null)}>
         <div style={{background:"white",borderRadius:16,padding:28,width:"100%",maxWidth:500,boxShadow:"0 20px 60px rgba(0,0,0,0.2)"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
             <span style={{fontSize:16,fontWeight:700,color:C.text}}>✉ Enviar E-mail</span>
@@ -746,7 +746,7 @@ export default function CRMPro(){
       <LeadDrawer/>
       {emailModal&&<EmailModal/>}
       {editingLead&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&setEditingLead(null)}>
+        <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&!sending&&setEmailModal(null)}>
           <div style={{background:"white",borderRadius:16,padding:28,width:"100%",maxWidth:440,boxShadow:"0 20px 60px rgba(0,0,0,0.2)",maxHeight:"90vh",overflowY:"auto"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
               <span style={{fontSize:16,fontWeight:700,color:C.text}}>Editar Lead</span>
@@ -776,7 +776,7 @@ export default function CRMPro(){
         </div>
       )}
       {newLeadModal&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&setNewLeadModal(false)}>
+        <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&!sending&&setEmailModal(null)}>
           <div style={{background:"white",borderRadius:16,padding:28,width:"100%",maxWidth:440,boxShadow:"0 20px 60px rgba(0,0,0,0.2)"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
               <span style={{fontSize:16,fontWeight:700,color:C.text}}>Novo Lead</span>
