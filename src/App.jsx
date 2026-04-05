@@ -550,6 +550,299 @@ export default function CRMPro(){
     const [loadingCamp,setLoadingCamp]=useState(false);
     const [selectedAccount,setSelectedAccount]=useState("");
     const [datePreset,setDatePreset]=useState("last_30d");
+    const [dateStart,setDateStart]=useState("");
+    const [dateEnd,setDateEnd]=useState("");
+    const [useCustomDate,setUseCustomDate]=useState(false);
+    const [error,setError]=useState("");
+    const [sortBy,setSortBy]=useState("spend");
+    const [showPaused,setShowPaused]=useState(true);
+    const [objective,setObjective]=useState("all");
+    // Drill-down
+    const [expandedCamp,setExpandedCamp]=useState(null);
+    const [adsets,setAdsets]=useState({});
+    const [loadingAdsets,setLoadingAdsets]=useState({});
+    const [expandedAdset,setExpandedAdset]=useState(null);
+    const [ads,setAds]=useState({});
+    const [loadingAds,setLoadingAds]=useState({});
+
+    useEffect(()=>{
+      fetch(`${API}/api/workspaces/${workspace.id}/meta/status`,{headers:{Authorization:`Bearer ${token}`}})
+        .then(r=>r.json()).then(d=>{setMetaStatus(d);if(d.connected&&d.adAccounts?.length>0)setSelectedAccount(d.adAccounts[0].id);}).catch(()=>{});
+      const params=new URLSearchParams(window.location.search);
+      if(params.get("meta")==="connected") window.history.replaceState({},"",window.location.pathname);
+    },[]);
+
+    useEffect(()=>{if(metaStatus.connected&&selectedAccount)loadCampaigns();},[metaStatus.connected,selectedAccount,datePreset,useCustomDate]);
+
+    const dateParams=()=>useCustomDate&&dateStart&&dateEnd?`&dateStart=${dateStart}&dateEnd=${dateEnd}`:`&datePreset=${datePreset}`;
+
+    const loadCampaigns=()=>{
+      setLoadingCamp(true);setError("");setExpandedCamp(null);setAdsets({});setAds({});
+      fetch(`${API}/api/workspaces/${workspace.id}/meta/campaigns?accountId=${selectedAccount}${dateParams()}`,{headers:{Authorization:`Bearer ${token}`}})
+        .then(r=>r.json()).then(d=>{if(d.error){setError(d.error);return;}setCampaigns(Array.isArray(d)?d:[]);})
+        .catch(()=>setError("Erro ao carregar campanhas")).finally(()=>setLoadingCamp(false));
+    };
+
+    const toggleCampaign=async(c)=>{
+      if(expandedCamp===c.id){setExpandedCamp(null);return;}
+      setExpandedCamp(c.id);
+      if(adsets[c.id])return;
+      setLoadingAdsets(p=>({...p,[c.id]:true}));
+      fetch(`${API}/api/workspaces/${workspace.id}/meta/adsets?campaignId=${c.id}${dateParams()}`,{headers:{Authorization:`Bearer ${token}`}})
+        .then(r=>r.json()).then(d=>{setAdsets(p=>({...p,[c.id]:Array.isArray(d)?d:[]}));})
+        .catch(()=>{}).finally(()=>setLoadingAdsets(p=>({...p,[c.id]:false})));
+    };
+
+    const toggleAdset=async(adsetId)=>{
+      if(expandedAdset===adsetId){setExpandedAdset(null);return;}
+      setExpandedAdset(adsetId);
+      if(ads[adsetId])return;
+      setLoadingAds(p=>({...p,[adsetId]:true}));
+      fetch(`${API}/api/workspaces/${workspace.id}/meta/ads?adsetId=${adsetId}${dateParams()}`,{headers:{Authorization:`Bearer ${token}`}})
+        .then(r=>r.json()).then(d=>{setAds(p=>({...p,[adsetId]:Array.isArray(d)?d:[]}));})
+        .catch(()=>{}).finally(()=>setLoadingAds(p=>({...p,[adsetId]:false})));
+    };
+
+    const connectMeta=()=>{localStorage.setItem("crm_token",token);window.location.href=`${API}/api/meta/oauth/start?wsId=${workspace.id}&token=${token}`;};
+    const disconnectMeta=async()=>{if(!confirm("Deseja desconectar o Meta Ads?"))return;await fetch(`${API}/api/workspaces/${workspace.id}/meta/disconnect`,{method:"DELETE",headers:{Authorization:`Bearer ${token}`}});setMetaStatus({connected:false,adAccounts:[],connectedAt:null});setCampaigns([]);};
+
+    const ins=(c,key)=>c.insights?.data?.[0]?.[key]||0;
+    const getAction=(c,type)=>{const a=(c.insights?.data?.[0]?.actions||[]).find(x=>x.action_type===type);return a?Number(a.value):0;};
+    const getROAS=(c)=>{const r=c.insights?.data?.[0]?.website_purchase_roas;return r&&r[0]?Number(r[0].value):0;};
+    const getLeads=(c)=>getAction(c,"lead")||getAction(c,"offsite_conversion.fb_pixel_lead");
+    const getPurchases=(c)=>getAction(c,"purchase")||getAction(c,"offsite_conversion.fb_pixel_purchase");
+    const getConvValue=(c)=>{const v=c.insights?.data?.[0]?.action_values?.find(x=>x.action_type==="purchase");return v?Number(v.value):0;};
+    const fmt2=(n)=>n.toLocaleString("pt-BR",{minimumFractionDigits:2});
+    const OBJ_LABELS={OUTCOME_LEADS:"Leads",OUTCOME_SALES:"Vendas",OUTCOME_TRAFFIC:"Tráfego",OUTCOME_ENGAGEMENT:"Engajamento",OUTCOME_AWARENESS:"Alcance",OUTCOME_APP_PROMOTION:"App"};
+    const DATE_OPTIONS=[{v:"today",l:"Hoje"},{v:"yesterday",l:"Ontem"},{v:"last_7d",l:"7 dias"},{v:"last_30d",l:"30 dias"},{v:"last_90d",l:"90 dias"},{v:"this_month",l:"Este mês"},{v:"last_month",l:"Mês passado"}];
+
+    // Fix bug objetivo: filtra apenas quando selecionado e campaigns tem dados
+    const objectives=[...new Set(campaigns.map(c=>c.objective).filter(Boolean))];
+    const filtered=campaigns
+      .filter(c=>showPaused||c.status==="ACTIVE")
+      .filter(c=>objective==="all"||!c.objective||c.objective===objective)
+      .sort((a,b)=>{
+        if(sortBy==="spend")return Number(ins(b,"spend"))-Number(ins(a,"spend"));
+        if(sortBy==="leads")return getLeads(b)-getLeads(a);
+        if(sortBy==="purchases")return getPurchases(b)-getPurchases(a);
+        if(sortBy==="clicks")return Number(ins(b,"clicks"))-Number(ins(a,"clicks"));
+        if(sortBy==="roas")return getROAS(b)-getROAS(a);
+        return 0;
+      });
+
+    const totSpend=filtered.reduce((a,c)=>a+Number(ins(c,"spend")||0),0);
+    const totLeads=filtered.reduce((a,c)=>a+getLeads(c),0);
+    const totPurchases=filtered.reduce((a,c)=>a+getPurchases(c),0);
+    const totClicks=filtered.reduce((a,c)=>a+Number(ins(c,"clicks")||0),0);
+    const totImpressions=filtered.reduce((a,c)=>a+Number(ins(c,"impressions")||0),0);
+    const totReach=filtered.reduce((a,c)=>a+Number(ins(c,"reach")||0),0);
+    const totConvValue=filtered.reduce((a,c)=>a+getConvValue(c),0);
+    const avgCPL=totLeads>0?totSpend/totLeads:0;
+    const avgCPA=totPurchases>0?totSpend/totPurchases:0;
+    const avgROAS=totSpend>0?totConvValue/totSpend:0;
+    const avgCPM=totImpressions>0?(totSpend/totImpressions)*1000:0;
+    const avgCTR=totImpressions>0?(totClicks/totImpressions)*100:0;
+    const avgCPC=totClicks>0?totSpend/totClicks:0;
+
+    const MetricRow=({item,level=0})=>{
+      const spend=Number(ins(item,"spend")||0);
+      const leads=getLeads(item);
+      const purchases=getPurchases(item);
+      const clicks=Number(ins(item,"clicks")||0);
+      const impressions=Number(ins(item,"impressions")||0);
+      const reach=Number(ins(item,"reach")||0);
+      const cpl=leads>0?spend/leads:0;
+      const cpa=purchases>0?spend/purchases:0;
+      const cpc=clicks>0?spend/clicks:0;
+      const cpm=impressions>0?(spend/impressions)*1000:0;
+      const ctr=impressions>0?(clicks/impressions)*100:0;
+      const roas=getROAS(item);
+      const active=item.status==="ACTIVE";
+      const isExpC=level===0&&expandedCamp===item.id;
+      const isExpA=level===1&&expandedAdset===item.id;
+      const isExp=level===0?isExpC:level===1?isExpA:false;
+      const toggle=level===0?()=>toggleCampaign(item):level===1?()=>toggleAdset(item.id):null;
+      const bg=level===0?"white":level===1?"#f8faff":"#f0f4ff";
+      const indent=level*20;
+      return(
+        <tr style={{borderBottom:`1px solid ${C.light}`,background:isExp?C.light:bg,opacity:active?1:0.65,cursor:toggle?"pointer":"default"}} onClick={toggle} onMouseOver={e=>e.currentTarget.style.background=C.light} onMouseOut={e=>e.currentTarget.style.background=isExp?C.light:bg}>
+          <td style={{padding:"9px 12px",fontWeight:level===0?600:500,color:C.text,maxWidth:220}}>
+            <div style={{display:"flex",alignItems:"center",gap:6,paddingLeft:indent}}>
+              {toggle&&<span style={{fontSize:10,color:C.muted,flexShrink:0}}>{isExp?"▼":"▶"}</span>}
+              {level===2&&item.creative?.thumbnail_url&&<img src={item.creative.thumbnail_url} style={{width:28,height:28,borderRadius:4,objectFit:"cover",flexShrink:0}}/>}
+              <div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={item.name}>{item.name}</div>
+            </div>
+          </td>
+          {level===0&&<td style={{padding:"9px 12px"}}><span style={{background:C.purpleBg,color:C.purpleTx,borderRadius:4,padding:"1px 7px",fontSize:10,fontWeight:600}}>{OBJ_LABELS[item.objective]||item.objective||"—"}</span></td>}
+          {level>0&&<td style={{padding:"9px 12px",fontSize:11,color:C.muted}}>{level===1?"Conjunto":"Anúncio"}</td>}
+          <td style={{padding:"9px 12px"}}><span style={{background:active?C.greenBg:C.light,color:active?C.greenTx:C.slate,borderRadius:20,padding:"2px 8px",fontSize:10,fontWeight:600}}>{active?"Ativa":"Pausada"}</span></td>
+          <td style={{padding:"9px 12px",fontWeight:600,color:spend>0?C.amber:C.muted,whiteSpace:"nowrap"}}>{spend>0?`R$ ${fmt2(spend)}`:"—"}</td>
+          <td style={{padding:"9px 12px",fontWeight:700,color:leads>0?C.blue:C.muted}}>{leads||"—"}</td>
+          <td style={{padding:"9px 12px",fontWeight:700,color:purchases>0?C.green:C.muted}}>{purchases||"—"}</td>
+          <td style={{padding:"9px 12px",color:roas>=2?C.green:roas>0?C.amber:C.muted,fontWeight:600}}>{roas>0?`${roas.toFixed(2)}×`:"—"}</td>
+          <td style={{padding:"9px 12px",color:C.text}}>{clicks>0?clicks.toLocaleString("pt-BR"):"—"}</td>
+          <td style={{padding:"9px 12px",color:ctr>=1?C.green:ctr>0?C.amber:C.muted}}>{ctr>0?`${ctr.toFixed(2)}%`:"—"}</td>
+          <td style={{padding:"9px 12px",color:C.text}}>{cpc>0?`R$ ${cpc.toFixed(2)}`:"—"}</td>
+          <td style={{padding:"9px 12px",color:C.text}}>{cpl>0?`R$ ${cpl.toFixed(2)}`:"—"}</td>
+          <td style={{padding:"9px 12px",color:C.text}}>{cpa>0?`R$ ${cpa.toFixed(2)}`:"—"}</td>
+          <td style={{padding:"9px 12px",color:C.muted}}>{cpm>0?`R$ ${cpm.toFixed(2)}`:"—"}</td>
+          <td style={{padding:"9px 12px",color:C.muted}}>{reach>0?reach.toLocaleString("pt-BR"):"—"}</td>
+        </tr>
+      );
+    };
+
+    if(!metaStatus.connected){
+      return(
+        <Pg title="Meta Ads" sub="Conecte sua conta para ver campanhas em tempo real">
+          <div style={{...card,textAlign:"center",padding:60,maxWidth:500,margin:"0 auto"}}>
+            <div style={{fontSize:48,marginBottom:20}}>📢</div>
+            <h3 style={{fontSize:20,fontWeight:700,color:C.text,marginBottom:12}}>Conecte sua conta Meta Ads</h3>
+            <p style={{fontSize:14,color:C.muted,lineHeight:1.7,marginBottom:32}}>Visualize campanhas, conjuntos, anúncios e métricas em tempo real.</p>
+            <button onClick={connectMeta} style={{background:"#1877f2",color:"white",border:"none",borderRadius:10,padding:"14px 32px",fontSize:15,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:10}}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+              Conectar com Facebook
+            </button>
+          </div>
+        </Pg>
+      );
+    }
+
+    return(
+      <Pg title="Meta Ads" sub="Dados em tempo real · Clique em uma campanha para ver conjuntos e anúncios">
+        {/* Toolbar */}
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+          <div style={{display:"flex",alignItems:"center",gap:6,background:C.greenBg,border:`1px solid ${C.green}`,borderRadius:8,padding:"6px 12px",flexShrink:0}}>
+            <div style={{width:7,height:7,borderRadius:"50%",background:C.green}}/><span style={{fontSize:12,color:C.greenTx,fontWeight:600}}>Conectado</span>
+          </div>
+          {metaStatus.adAccounts?.length>0&&(
+            <select value={selectedAccount} onChange={e=>{setSelectedAccount(e.target.value);}} style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 10px",fontSize:13,background:"white",outline:"none",color:C.text,minWidth:160}}>
+              {metaStatus.adAccounts.map(a=><option key={a.id} value={a.id}>{a.name||a.id}</option>)}
+            </select>
+          )}
+          {/* Período */}
+          <select value={useCustomDate?"custom":datePreset} onChange={e=>{if(e.target.value==="custom"){setUseCustomDate(true);}else{setUseCustomDate(false);setDatePreset(e.target.value);}}} style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 10px",fontSize:13,background:"white",outline:"none",color:C.text}}>
+            {DATE_OPTIONS.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+            <option value="custom">Personalizado</option>
+          </select>
+          {useCustomDate&&<>
+            <input type="date" value={dateStart} onChange={e=>setDateStart(e.target.value)} style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 10px",fontSize:13,outline:"none"}}/>
+            <span style={{fontSize:13,color:C.muted}}>até</span>
+            <input type="date" value={dateEnd} onChange={e=>setDateEnd(e.target.value)} style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 10px",fontSize:13,outline:"none"}}/>
+            <button onClick={loadCampaigns} disabled={!dateStart||!dateEnd} style={{background:C.green,color:"white",border:"none",borderRadius:8,padding:"6px 12px",fontSize:13,cursor:"pointer",fontWeight:600,opacity:(!dateStart||!dateEnd)?0.5:1}}>Aplicar</button>
+          </>}
+          {/* Objetivo */}
+          <select value={objective} onChange={e=>setObjective(e.target.value)} style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 10px",fontSize:13,background:"white",outline:"none",color:C.text}}>
+            <option value="all">Todos objetivos</option>
+            {objectives.map(o=><option key={o} value={o}>{OBJ_LABELS[o]||o}</option>)}
+          </select>
+          <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 10px",fontSize:13,background:"white",outline:"none",color:C.text}}>
+            <option value="spend">↓ Investimento</option>
+            <option value="leads">↓ Leads</option>
+            <option value="purchases">↓ Compras</option>
+            <option value="clicks">↓ Cliques</option>
+            <option value="roas">↓ ROAS</option>
+          </select>
+          <label style={{display:"flex",alignItems:"center",gap:5,fontSize:13,color:C.slate,cursor:"pointer"}}>
+            <input type="checkbox" checked={showPaused} onChange={e=>setShowPaused(e.target.checked)} style={{accentColor:C.green}}/> Pausadas
+          </label>
+          <div style={{marginLeft:"auto",display:"flex",gap:6}}>
+            <button onClick={loadCampaigns} style={{background:C.light,border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 10px",fontSize:13,cursor:"pointer",color:C.slate}}>↻</button>
+            <button onClick={disconnectMeta} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 10px",fontSize:13,color:C.muted,cursor:"pointer"}}>Desconectar</button>
+          </div>
+        </div>
+
+        {/* KPIs */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:16}}>
+          {[
+            {l:"Investimento",v:`R$ ${fmt2(totSpend)}`,c:C.amber,s:""},
+            {l:"Leads",v:totLeads||"—",c:C.blue,s:avgCPL>0?`CPL R$ ${avgCPL.toFixed(2)}`:""},
+            {l:"Compras",v:totPurchases||"—",c:C.green,s:avgCPA>0?`CPA R$ ${avgCPA.toFixed(2)}`:""},
+            {l:"ROAS",v:avgROAS>0?`${avgROAS.toFixed(2)}×`:"—",c:avgROAS>=2?C.green:avgROAS>0?C.amber:C.muted,s:totConvValue>0?`R$ ${fmt2(totConvValue)}`:""},
+            {l:"Cliques",v:totClicks.toLocaleString("pt-BR"),c:C.purple,s:avgCPC>0?`CPC R$ ${avgCPC.toFixed(2)}`:""},
+            {l:"Impressões",v:totImpressions>0?totImpressions.toLocaleString("pt-BR"):"—",c:C.slate,s:avgCPM>0?`CPM R$ ${avgCPM.toFixed(2)}`:""},
+            {l:"Alcance",v:totReach>0?totReach.toLocaleString("pt-BR"):"—",c:C.slate,s:""},
+            {l:"CTR",v:avgCTR>0?`${avgCTR.toFixed(2)}%`:"—",c:avgCTR>=1?C.green:avgCTR>0?C.amber:C.muted,s:""},
+          ].map((k,i)=>(
+            <div key={i} style={card}>
+              <div style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:3}}>{k.l}</div>
+              <div style={{fontSize:18,fontWeight:700,color:k.c,margin:"2px 0"}}>{k.v}</div>
+              {k.s&&<div style={{fontSize:11,color:C.muted}}>{k.s}</div>}
+            </div>
+          ))}
+        </div>
+
+        {error&&<div style={{background:C.redBg,color:C.redTx,borderRadius:8,padding:"12px 16px",marginBottom:14,fontSize:13}}>⚠ {error}</div>}
+
+        {/* Tabela com drill-down */}
+        <div style={{...card,padding:0,overflow:"hidden"}}>
+          <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{fontWeight:600,color:C.text,fontSize:13}}>
+              Campanhas <span style={{color:C.muted,fontWeight:400,fontSize:12}}>({filtered.length})</span>
+              <span style={{fontSize:11,color:C.muted,fontWeight:400,marginLeft:8}}>▶ Clique para ver conjuntos e anúncios</span>
+            </div>
+            {loadingCamp&&<span style={{fontSize:12,color:C.muted}}>⟳ Carregando...</span>}
+          </div>
+          {filtered.length===0&&!loadingCamp&&<div style={{padding:40,textAlign:"center",color:C.muted,fontSize:14}}>Nenhuma campanha encontrada.</div>}
+          {filtered.length>0&&(
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                <thead>
+                  <tr style={{background:C.light}}>
+                    {["Campanha/Conjunto/Anúncio","Objetivo","Status","Investido","Leads","Compras","ROAS","Cliques","CTR","CPC","CPL","CPA","CPM","Alcance"].map(h=>(
+                      <th key={h} style={{padding:"8px 12px",textAlign:"left",color:C.slate,fontWeight:600,fontSize:10,textTransform:"uppercase",letterSpacing:"0.04em",borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(c=>(
+                    <>
+                      <MetricRow key={c.id} item={c} level={0}/>
+                      {expandedCamp===c.id&&(
+                        loadingAdsets[c.id]
+                          ?<tr key={`load-${c.id}`}><td colSpan={14} style={{padding:"12px 32px",color:C.muted,fontSize:12}}>⟳ Carregando conjuntos...</td></tr>
+                          :(adsets[c.id]||[]).map(as=>(
+                            <>
+                              <MetricRow key={as.id} item={as} level={1}/>
+                              {expandedAdset===as.id&&(
+                                loadingAds[as.id]
+                                  ?<tr key={`load-ads-${as.id}`}><td colSpan={14} style={{padding:"12px 52px",color:C.muted,fontSize:12}}>⟳ Carregando anúncios...</td></tr>
+                                  :(ads[as.id]||[]).map(ad=><MetricRow key={ad.id} item={ad} level={2}/>)
+                              )}
+                            </>
+                          ))
+                      )}
+                    </>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr style={{background:"#f1f5f9",borderTop:`2px solid ${C.border}`,fontWeight:700,fontSize:12}}>
+                    <td style={{padding:"9px 12px",color:C.text}}>TOTAL ({filtered.length})</td>
+                    <td/><td/>
+                    <td style={{padding:"9px 12px",color:C.amber,whiteSpace:"nowrap"}}>R$ {fmt2(totSpend)}</td>
+                    <td style={{padding:"9px 12px",color:C.blue}}>{totLeads||"—"}</td>
+                    <td style={{padding:"9px 12px",color:C.green}}>{totPurchases||"—"}</td>
+                    <td style={{padding:"9px 12px",color:avgROAS>=2?C.green:C.amber}}>{avgROAS>0?`${avgROAS.toFixed(2)}×`:"—"}</td>
+                    <td style={{padding:"9px 12px",color:C.text}}>{totClicks.toLocaleString("pt-BR")}</td>
+                    <td style={{padding:"9px 12px",color:C.text}}>{avgCTR>0?`${avgCTR.toFixed(2)}%`:"—"}</td>
+                    <td style={{padding:"9px 12px",color:C.text}}>{avgCPC>0?`R$ ${avgCPC.toFixed(2)}`:"—"}</td>
+                    <td style={{padding:"9px 12px",color:C.text}}>{avgCPL>0?`R$ ${avgCPL.toFixed(2)}`:"—"}</td>
+                    <td style={{padding:"9px 12px",color:C.text}}>{avgCPA>0?`R$ ${avgCPA.toFixed(2)}`:"—"}</td>
+                    <td style={{padding:"9px 12px",color:C.text}}>{avgCPM>0?`R$ ${avgCPM.toFixed(2)}`:"—"}</td>
+                    <td style={{padding:"9px 12px",color:C.muted}}>{totReach>0?totReach.toLocaleString("pt-BR"):"—"}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+        </div>
+      </Pg>
+    );
+  };
+    const [metaStatus,setMetaStatus]=useState({connected:false,adAccounts:[],connectedAt:null});
+    const [campaigns,setCampaigns]=useState([]);
+    const [loadingCamp,setLoadingCamp]=useState(false);
+    const [selectedAccount,setSelectedAccount]=useState("");
+    const [datePreset,setDatePreset]=useState("last_30d");
     const [error,setError]=useState("");
     const [sortBy,setSortBy]=useState("spend");
     const [showPaused,setShowPaused]=useState(true);
