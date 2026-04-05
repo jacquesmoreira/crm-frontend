@@ -545,12 +545,139 @@ export default function CRMPro(){
   };
 
   const MetaAds=()=>{
-    const total={leads:ADS_CAMPAIGNS.reduce((a,c)=>a+c.leads,0),spent:ADS_CAMPAIGNS.reduce((a,c)=>a+c.spent,0),synced:ADS_CAMPAIGNS.reduce((a,c)=>a+c.synced,0)};
+    const [metaStatus,setMetaStatus]=useState({connected:false,adAccounts:[],connectedAt:null});
+    const [campaigns,setCampaigns]=useState([]);
+    const [loadingCamp,setLoadingCamp]=useState(false);
+    const [selectedAccount,setSelectedAccount]=useState("");
+    const [error,setError]=useState("");
+
+    useEffect(()=>{
+      fetch(`${API}/api/workspaces/${workspace.id}/meta/status`,{headers:{Authorization:`Bearer ${token}`}})
+        .then(r=>r.json()).then(d=>{
+          setMetaStatus(d);
+          if(d.connected&&d.adAccounts?.length>0){
+            setSelectedAccount(d.adAccounts[0].id);
+          }
+        }).catch(()=>{});
+      // Verifica se voltou do OAuth
+      if(window.location.search.includes("meta=connected")){
+        window.history.replaceState({},"",window.location.pathname);
+      }
+    },[]);
+
+    useEffect(()=>{
+      if(!metaStatus.connected||!selectedAccount)return;
+      setLoadingCamp(true);setError("");
+      fetch(`${API}/api/workspaces/${workspace.id}/meta/campaigns?accountId=${selectedAccount}`,{headers:{Authorization:`Bearer ${token}`}})
+        .then(r=>r.json()).then(d=>{
+          if(d.error){setError(d.error);return;}
+          setCampaigns(Array.isArray(d)?d:[]);
+        }).catch(()=>setError("Erro ao carregar campanhas"))
+        .finally(()=>setLoadingCamp(false));
+    },[metaStatus.connected,selectedAccount]);
+
+    const connectMeta=()=>{
+      window.location.href=`${API}/api/meta/oauth/start?wsId=${workspace.id}&token=${token}`;
+    };
+
+    const disconnectMeta=async()=>{
+      await fetch(`${API}/api/workspaces/${workspace.id}/meta/disconnect`,{method:"DELETE",headers:{Authorization:`Bearer ${token}`}});
+      setMetaStatus({connected:false,adAccounts:[],connectedAt:null});
+      setCampaigns([]);
+    };
+
+    const getInsight=(c,key)=>{
+      const ins=c.insights?.data?.[0];
+      return ins?.[key]||0;
+    };
+
+    const getLeads=(c)=>{
+      const actions=c.insights?.data?.[0]?.actions||[];
+      const leadAction=actions.find(a=>a.action_type==="lead"||a.action_type==="offsite_conversion.fb_pixel_lead");
+      return leadAction?Number(leadAction.value):0;
+    };
+
+    if(!metaStatus.connected){
+      return(
+        <Pg title="Meta Ads" sub="Conecte sua conta para ver campanhas em tempo real">
+          <div style={{...card,textAlign:"center",padding:60,maxWidth:500,margin:"0 auto"}}>
+            <div style={{fontSize:48,marginBottom:20}}>📢</div>
+            <h3 style={{fontSize:20,fontWeight:700,color:C.text,marginBottom:12}}>Conecte sua conta Meta Ads</h3>
+            <p style={{fontSize:14,color:C.muted,lineHeight:1.7,marginBottom:32}}>Visualize campanhas, gastos, leads gerados e métricas em tempo real diretamente do seu gerenciador de anúncios.</p>
+            <button onClick={connectMeta} style={{background:"#1877f2",color:"white",border:"none",borderRadius:10,padding:"14px 32px",fontSize:15,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:10}}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+              Conectar com Facebook
+            </button>
+            <p style={{fontSize:12,color:C.muted,marginTop:16}}>Você será redirecionado para o Facebook para autorizar o acesso às suas campanhas.</p>
+          </div>
+        </Pg>
+      );
+    }
+
+    const totalSpend=campaigns.reduce((a,c)=>a+Number(getInsight(c,"spend")||0),0);
+    const totalLeads=campaigns.reduce((a,c)=>a+getLeads(c),0);
+    const totalClicks=campaigns.reduce((a,c)=>a+Number(getInsight(c,"clicks")||0),0);
+
     return(
-      <Pg title="Meta Ads" sub="Campanhas integradas · Sincronização automática de leads">
-        <Grid cols={3} gap={12} mb={18}>{[{l:"Leads Capturados",v:total.leads,s:"Últimos 7 dias",c:C.blue},{l:"Investimento",v:`R$ ${total.spent}`,s:"Última semana",c:C.amber},{l:"Leads Sincronizados",v:total.synced,s:"No CRM automaticamente",c:C.green}].map((k,i)=><div key={i} style={card}><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>{k.l}</div><div style={{fontSize:24,fontWeight:700,color:k.c,margin:"4px 0"}}>{k.v}</div><div style={{fontSize:12,color:C.slate}}>{k.s}</div></div>)}</Grid>
-        <div style={{...card,marginBottom:16}}><STitle>Leads por dia (últimos 7 dias)</STitle><ResponsiveContainer width="100%" height={160}><LineChart data={ADS_DAILY}><XAxis dataKey="d" tick={{fontSize:11,fill:C.muted}} axisLine={false} tickLine={false}/><YAxis tick={{fontSize:11,fill:C.muted}} axisLine={false} tickLine={false}/><Tooltip contentStyle={{borderRadius:8,border:`1px solid ${C.border}`,fontSize:12}}/><Line type="monotone" dataKey="leads" stroke={C.blue} strokeWidth={2} dot={{fill:C.blue,r:3}} name="Leads"/></LineChart></ResponsiveContainer></div>
-        <div style={card}><STitle>Campanhas Ativas</STitle><table style={{width:"100%",borderCollapse:"collapse",fontSize:13,marginTop:10}}><thead><tr style={{background:C.light}}>{["Campanha","Status","Orçamento","Investido","Leads","CPL","ROAS","CRM Sync"].map(h=><th key={h} style={{padding:"7px 12px",textAlign:"left",color:C.slate,fontWeight:600,fontSize:11,textTransform:"uppercase",letterSpacing:"0.05em",borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead><tbody>{ADS_CAMPAIGNS.map(c=><tr key={c.id} style={{borderBottom:`1px solid ${C.light}`}}><td style={{padding:"10px 12px",fontWeight:500,color:C.text}}>{c.name}</td><td style={{padding:"10px 12px"}}><span style={{background:c.status==="Ativo"?C.greenBg:C.light,color:c.status==="Ativo"?C.greenTx:C.slate,borderRadius:20,padding:"2px 8px",fontSize:11,fontWeight:600}}>{c.status}</span></td><td style={{padding:"10px 12px",color:C.slate}}>R$ {c.budget}/dia</td><td style={{padding:"10px 12px",color:C.text}}>R$ {c.spent}</td><td style={{padding:"10px 12px",fontWeight:700,color:C.blue}}>{c.leads}</td><td style={{padding:"10px 12px",color:C.text}}>R$ {c.cpl>0?c.cpl.toFixed(2):"—"}</td><td style={{padding:"10px 12px",fontWeight:600,color:c.roas>2?C.green:c.roas>0?C.amber:C.muted}}>{c.roas>0?`${c.roas}×`:"—"}</td><td style={{padding:"10px 12px"}}><span style={{background:C.greenBg,color:C.greenTx,borderRadius:20,padding:"2px 8px",fontSize:11,fontWeight:600}}>{c.synced}/{c.leads} ✓</span></td></tr>)}</tbody></table></div>
+      <Pg title="Meta Ads" sub="Dados em tempo real do seu gerenciador de anúncios">
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20,flexWrap:"wrap"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,background:C.greenBg,border:`1px solid ${C.green}`,borderRadius:8,padding:"6px 14px"}}>
+            <div style={{width:8,height:8,borderRadius:"50%",background:C.green}}/>
+            <span style={{fontSize:13,color:C.greenTx,fontWeight:600}}>Meta Ads conectado</span>
+          </div>
+          {metaStatus.adAccounts.length>1&&(
+            <select value={selectedAccount} onChange={e=>setSelectedAccount(e.target.value)} style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 12px",fontSize:13,background:"white",outline:"none"}}>
+              {metaStatus.adAccounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+          )}
+          <button onClick={disconnectMeta} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 14px",fontSize:13,color:C.muted,cursor:"pointer",marginLeft:"auto"}}>Desconectar</button>
+        </div>
+
+        <Grid cols={3} gap={12} mb={18}>
+          {[{l:"Investimento Total",v:`R$ ${totalSpend.toLocaleString("pt-BR",{minimumFractionDigits:2})}`,c:C.amber},{l:"Leads Gerados",v:totalLeads,c:C.blue},{l:"Cliques",v:totalClicks.toLocaleString("pt-BR"),c:C.purple}].map((k,i)=>(
+            <div key={i} style={card}><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>{k.l}</div><div style={{fontSize:24,fontWeight:700,color:k.c,margin:"4px 0"}}>{k.v}</div></div>
+          ))}
+        </Grid>
+
+        {error&&<div style={{background:C.redBg,color:C.redTx,borderRadius:8,padding:"12px 16px",marginBottom:16,fontSize:13}}>{error}</div>}
+
+        <div style={{...card,padding:0,overflow:"hidden"}}>
+          <div style={{padding:"14px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <STitle>Campanhas</STitle>
+            {loadingCamp&&<span style={{fontSize:12,color:C.muted}}>Carregando...</span>}
+          </div>
+          {campaigns.length===0&&!loadingCamp&&(
+            <div style={{padding:40,textAlign:"center",color:C.muted,fontSize:14}}>Nenhuma campanha encontrada nesta conta.</div>
+          )}
+          {campaigns.length>0&&(
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                <thead><tr style={{background:C.light}}>{["Campanha","Status","Investido","Leads","Cliques","CPL","CPM"].map(h=><th key={h} style={{padding:"8px 14px",textAlign:"left",color:C.slate,fontWeight:600,fontSize:11,textTransform:"uppercase",letterSpacing:"0.05em",borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {campaigns.map(c=>{
+                    const spend=Number(getInsight(c,"spend")||0);
+                    const leads=getLeads(c);
+                    const clicks=Number(getInsight(c,"clicks")||0);
+                    const cpl=leads>0?(spend/leads):0;
+                    const cpm=Number(getInsight(c,"cpm")||0);
+                    const active=c.status==="ACTIVE";
+                    return(
+                      <tr key={c.id} style={{borderBottom:`1px solid ${C.light}`}}>
+                        <td style={{padding:"10px 14px",fontWeight:600,color:C.text,maxWidth:250}}><div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div></td>
+                        <td style={{padding:"10px 14px"}}><span style={{background:active?C.greenBg:C.light,color:active?C.greenTx:C.slate,borderRadius:20,padding:"2px 8px",fontSize:11,fontWeight:600}}>{active?"Ativa":"Pausada"}</span></td>
+                        <td style={{padding:"10px 14px",color:C.text}}>R$ {spend.toLocaleString("pt-BR",{minimumFractionDigits:2})}</td>
+                        <td style={{padding:"10px 14px",fontWeight:700,color:C.blue}}>{leads}</td>
+                        <td style={{padding:"10px 14px",color:C.text}}>{clicks.toLocaleString("pt-BR")}</td>
+                        <td style={{padding:"10px 14px",color:cpl>0?C.text:C.muted}}>{cpl>0?`R$ ${cpl.toFixed(2)}`:"—"}</td>
+                        <td style={{padding:"10px 14px",color:C.text}}>{cpm>0?`R$ ${cpm.toFixed(2)}`:"—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </Pg>
     );
   };
