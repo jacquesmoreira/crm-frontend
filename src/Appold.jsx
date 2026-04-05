@@ -179,7 +179,6 @@ export default function CRMPro(){
   const [pipelines,setPipelines]=useState([]);
   const [activePipeline,setActivePipeline]=useState(null);
   const [emailModal,setEmailModal]=useState(null);
-  const [billing,setBilling]=useState({plan:"free",status:"none"});
   const [editingLead,setEditingLead]=useState(null);
   const [editForm,setEditForm]=useState({});
   const [savingEdit,setSavingEdit]=useState(false);
@@ -208,8 +207,6 @@ export default function CRMPro(){
       .then(r=>r.json()).then(data=>{if(Array.isArray(data))setCustomFields(data);}).catch(()=>{});
     fetch(`${API}/api/workspaces/${workspace.id}/pipelines`,{headers:{Authorization:`Bearer ${token}`}})
       .then(r=>r.json()).then(data=>{if(Array.isArray(data)&&data.length>0){setPipelines(data);setActivePipeline(data[0]);}}).catch(()=>{});
-    fetch(`${API}/api/billing/subscription`,{headers:{Authorization:`Bearer ${token}`}})
-      .then(r=>r.json()).then(data=>{if(data.plan)setBilling(data);}).catch(()=>{});
   },[workspace]);
 
   useEffect(()=>{
@@ -248,22 +245,6 @@ export default function CRMPro(){
       if(r.ok){setLeads(p=>p.map(l=>l.id===d.id?d:l));setSelLead(d);setEditingLead(null);}
     }catch{}
     setSavingEdit(false);
-  };
-
-  const openCheckout=async(plan)=>{
-    try{
-      const r=await fetch(`${API}/api/billing/checkout`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({plan})});
-      const d=await r.json();
-      if(d.url)window.location.href=d.url;
-    }catch{}
-  };
-
-  const openPortal=async()=>{
-    try{
-      const r=await fetch(`${API}/api/billing/portal`,{method:"POST",headers:{Authorization:`Bearer ${token}`}});
-      const d=await r.json();
-      if(d.url)window.location.href=d.url;
-    }catch{}
   };
 
   const openLeadWhatsApp=(lead)=>{
@@ -572,27 +553,6 @@ export default function CRMPro(){
           <div style={card}><STitle>Workspace</STitle><div style={{marginTop:12}}><div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}><div style={{width:44,height:44,borderRadius:10,background:workspace.color||C.green,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:700,color:"white"}}>{workspace.name[0]}</div><div><div style={{fontWeight:600,color:C.text}}>{workspace.name}</div><div style={{fontSize:12,color:C.slate}}>Plano {workspace.plan||"Starter"}</div></div></div>{[{l:"Moeda",v:"BRL (R$)"},{l:"Fuso horário",v:"America/Sao_Paulo"},{l:"Idioma",v:"Português (BR)"}].map((f,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${C.light}`,fontSize:13}}><span style={{color:C.slate}}>{f.l}</span><span style={{color:C.text,fontWeight:500}}>{f.v}</span></div>)}</div></div>
           <div style={card}><STitle>Equipe</STitle><div style={{marginTop:12,display:"flex",flexDirection:"column",gap:10}}>{members.map((m,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:10}}><div style={{width:34,height:34,borderRadius:"50%",background:m.c,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"white",flexShrink:0}}>{m.avatar}</div><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:C.text}}>{m.name}</div><div style={{fontSize:11,color:C.muted}}>{m.email}</div></div><span style={{background:C.light,color:C.slate,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:500}}>{m.role}</span></div>)}<button style={{marginTop:4,background:"none",border:`1px dashed ${C.border}`,borderRadius:8,padding:"8px",fontSize:12,color:C.slate,cursor:"pointer"}}>+ Convidar membro</button></div></div>
           <div style={card}><STitle>Integrações</STitle><div style={{marginTop:12,display:"flex",flexDirection:"column",gap:10}}>{[{n:"Meta Ads",s:"Conectado",ok:true,icon:"📢"},{n:"WhatsApp",s:"Conectado",ok:true,icon:"💬"},{n:"Google Ads",s:"Desconectado",ok:false,icon:"🔍"},{n:"RD Station",s:"Desconectado",ok:false,icon:"📧"},{n:"Stripe/Pix",s:"Desconectado",ok:false,icon:"💳"}].map((itg,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:18,width:28}}>{itg.icon}</span><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:C.text}}>{itg.n}</div></div><span style={{background:itg.ok?C.greenBg:C.light,color:itg.ok?C.greenTx:C.slate,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:500}}>{itg.s}</span>{!itg.ok&&<button style={{background:C.blueBg,color:C.blue,border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11,fontWeight:600}}>Conectar</button>}</div>)}</div></div>
-          <div style={{...card,gridColumn:"1/-1"}}><STitle>Plano e Cobrança</STitle>
-            <div style={{marginTop:12,marginBottom:16,display:"flex",alignItems:"center",gap:12}}>
-              <span style={{fontSize:13,color:C.text}}>Plano atual:</span>
-              <span style={{background:billing.plan==="free"?C.light:C.greenBg,color:billing.plan==="free"?C.slate:C.greenTx,borderRadius:20,padding:"3px 14px",fontSize:13,fontWeight:700,textTransform:"capitalize"}}>{billing.plan==="free"?"Gratuito":billing.plan}</span>
-              {billing.plan!=="free"&&<span style={{fontSize:12,color:C.muted}}>Renova em {billing.renewsAt?new Date(billing.renewsAt).toLocaleDateString("pt-BR"):""}</span>}
-              {billing.plan!=="free"&&<button onClick={openPortal} style={{background:C.light,color:C.slate,border:`1px solid ${C.border}`,borderRadius:8,padding:"5px 14px",cursor:"pointer",fontSize:12,fontWeight:600,marginLeft:"auto"}}>Gerenciar assinatura</button>}
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
-              {[{id:"starter",name:"Starter",price:"R$77",desc:"1 usuário · 500 leads · 1 funil · WhatsApp · E-mail"},{id:"pro",name:"Pro",price:"R$147",desc:"5 usuários · Leads ilimitados · Múltiplos funis · IA avançada",highlight:true},{id:"agency",name:"Agency",price:"R$297",desc:"Usuários ilimitados · Múltiplos workspaces · Suporte prioritário"}].map(p=>(
-                <div key={p.id} style={{border:`2px solid ${p.highlight?C.green:C.border}`,borderRadius:12,padding:16,background:p.highlight?C.greenBg:"white",position:"relative"}}>
-                  {p.highlight&&<div style={{position:"absolute",top:-10,left:"50%",transform:"translateX(-50%)",background:C.green,color:"white",borderRadius:20,padding:"2px 12px",fontSize:11,fontWeight:700}}>Mais popular</div>}
-                  <div style={{fontSize:16,fontWeight:700,color:C.text,marginBottom:4}}>{p.name}</div>
-                  <div style={{fontSize:24,fontWeight:700,color:p.highlight?C.greenTx:C.text,marginBottom:8}}>{p.price}<span style={{fontSize:12,fontWeight:400,color:C.muted}}>/mês</span></div>
-                  <div style={{fontSize:12,color:C.slate,marginBottom:14,lineHeight:1.6}}>{p.desc}</div>
-                  <button onClick={()=>openCheckout(p.id)} disabled={billing.plan===p.id} style={{width:"100%",background:billing.plan===p.id?C.light:p.highlight?C.green:C.blue,color:billing.plan===p.id?C.muted:"white",border:"none",borderRadius:8,padding:"9px",cursor:billing.plan===p.id?"default":"pointer",fontSize:13,fontWeight:600,opacity:1}}>
-                    {billing.plan===p.id?"Plano atual":"Assinar"}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
           <div style={card}><STitle>API & Webhooks</STitle><div style={{marginTop:12}}><div style={{fontSize:12,color:C.slate,marginBottom:6}}>Webhook URL (Meta Ads)</div><div style={{background:C.light,borderRadius:8,padding:"10px 12px",fontFamily:"monospace",fontSize:11,color:C.text}}>{API}/api/webhooks/meta</div></div></div>
           <div style={{...card,gridColumn:"1/-1"}}><STitle>E-mail (SMTP)</STitle>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:12}}>
@@ -657,7 +617,7 @@ export default function CRMPro(){
       setSavingNote(false);
     };
     return(
-      <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:200,display:"flex",justifyContent:"flex-end"}} onClick={e=>e.target===e.currentTarget&&(setSelLead(null),setAiData(null))}>
+      <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:200,display:"flex",justifyContent:"flex-end"}} onClick={e=>e.target===e.currentTarget&&!sending&&setEmailModal(null)}>
         <div style={{width:430,background:"white",height:"100%",overflowY:"auto",boxShadow:"-8px 0 32px rgba(0,0,0,0.12)"}}>
           <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.border}`,position:"sticky",top:0,background:"white",zIndex:1}}>
             <Row mb={8}><div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:C.text}}>{l.name}</div><div style={{fontSize:12,color:C.slate,marginTop:2}}>{l.company}</div></div><div style={{display:"flex",gap:8}}><button onClick={()=>{setEditingLead(l);setEditForm({name:l.name,company:l.company||"",email:l.email||"",phone:l.phone||"",value:l.value||"",source:l.source||"Indicação",notes:l.notes||""});}} style={{background:C.blueBg,color:C.blue,border:"none",borderRadius:6,padding:"5px 10px",cursor:"pointer",fontSize:12,fontWeight:600}}>Editar</button><button onClick={()=>{setSelLead(null);setAiData(null);}} style={{background:"none",border:"none",cursor:"pointer",color:C.muted,fontSize:20}}>✕</button></div></Row>
@@ -723,7 +683,7 @@ export default function CRMPro(){
       setSending(false);
     };
     return(
-      <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&setEmailModal(null)}>
+      <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&!sending&&setEmailModal(null)}>
         <div style={{background:"white",borderRadius:16,padding:28,width:"100%",maxWidth:500,boxShadow:"0 20px 60px rgba(0,0,0,0.2)"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
             <span style={{fontSize:16,fontWeight:700,color:C.text}}>✉ Enviar E-mail</span>
@@ -786,7 +746,7 @@ export default function CRMPro(){
       <LeadDrawer/>
       {emailModal&&<EmailModal/>}
       {editingLead&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&setEditingLead(null)}>
+        <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&!sending&&setEmailModal(null)}>
           <div style={{background:"white",borderRadius:16,padding:28,width:"100%",maxWidth:440,boxShadow:"0 20px 60px rgba(0,0,0,0.2)",maxHeight:"90vh",overflowY:"auto"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
               <span style={{fontSize:16,fontWeight:700,color:C.text}}>Editar Lead</span>
@@ -816,7 +776,7 @@ export default function CRMPro(){
         </div>
       )}
       {newLeadModal&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&setNewLeadModal(false)}>
+        <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&!sending&&setEmailModal(null)}>
           <div style={{background:"white",borderRadius:16,padding:28,width:"100%",maxWidth:440,boxShadow:"0 20px 60px rgba(0,0,0,0.2)"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
               <span style={{fontSize:16,fontWeight:700,color:C.text}}>Novo Lead</span>
