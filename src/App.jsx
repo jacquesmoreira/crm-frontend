@@ -3,13 +3,13 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 import { io as socketIO } from "socket.io-client";
 
 const C = {
-  green:"#10b981",greenBg:"#ecfdf5",greenTx:"#047857",
+  green:"#00c896",greenBg:"#e6faf5",greenTx:"#007a5c",
   blue:"#3b82f6", blueBg:"#eff6ff", blueTx:"#1d4ed8",
   amber:"#f59e0b",amberBg:"#fffbeb",amberTx:"#b45309",
   red:"#ef4444",  redBg:"#fef2f2",  redTx:"#b91c1c",
   purple:"#8b5cf6",purpleBg:"#f5f3ff",purpleTx:"#6d28d9",
   slate:"#64748b", light:"#f8fafc", border:"#e2e8f0",
-  dark:"#0f172a",  text:"#1e293b",  muted:"#94a3b8",
+  dark:"#0d1117",  text:"#1e293b",  muted:"#94a3b8",
 };
 const fmt  = n => "R$ "+n.toLocaleString("pt-BR");
 const card = {background:"white",borderRadius:12,border:`1px solid ${C.border}`,padding:"18px 20px"};
@@ -88,29 +88,60 @@ function AuthScreen({onLogin}) {
     setLoading(false);
   };
   return(
-    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0f172a 0%,#1e293b 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-      <div style={{width:"100%",maxWidth:400}}>
-        <div style={{textAlign:"center",marginBottom:32}}>
-          <div style={{width:52,height:52,background:C.green,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,fontWeight:700,color:"white",margin:"0 auto 12px"}}>C</div>
-          <div style={{color:"white",fontSize:24,fontWeight:700}}>CRM Pro</div>
-          <div style={{color:C.muted,fontSize:13,marginTop:4}}>Gestão inteligente de vendas</div>
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0d1117 0%,#0f1f2e 50%,#0d1a1a 100%)",display:"flex",overflow:"hidden"}}>
+      {/* Left panel */}
+      <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",padding:"60px 64px",position:"relative"}}>
+        <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,backgroundImage:"radial-gradient(circle at 20% 50%, rgba(0,200,150,0.08) 0%, transparent 60%)",pointerEvents:"none"}}/>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:64}}>
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <rect width="40" height="40" rx="10" fill="#00c896"/>
+            <path d="M10 20C10 14.477 14.477 10 20 10C23.18 10 26.02 11.38 28 13.6L24.4 16.5C23.36 15.24 21.78 14.44 20 14.44C16.93 14.44 14.44 16.93 14.44 20C14.44 23.07 16.93 25.56 20 25.56C21.78 25.56 23.36 24.76 24.4 23.5L28 26.4C26.02 28.62 23.18 30 20 30C14.477 30 10 25.523 10 20Z" fill="#0d1117"/>
+            <circle cx="28" cy="20" r="3" fill="#0d1117"/>
+          </svg>
+          <span style={{color:"white",fontWeight:800,fontSize:22,letterSpacing:"-0.5px"}}>Clien<span style={{color:"#00c896"}}>Data</span></span>
         </div>
-        <div style={{background:"white",borderRadius:16,padding:28}}>
-          <div style={{display:"flex",background:C.light,borderRadius:8,padding:3,marginBottom:22}}>
-            {["login","register"].map(m=>(
-              <button key={m} onClick={()=>setMode(m)} style={{flex:1,padding:"7px",border:"none",borderRadius:6,cursor:"pointer",fontSize:13,fontWeight:600,background:mode===m?"white":"transparent",color:mode===m?C.text:C.slate,boxShadow:mode===m?"0 1px 3px rgba(0,0,0,0.1)":"none"}}>
-                {m==="login"?"Entrar":"Criar conta"}
-              </button>
+        <div style={{maxWidth:480}}>
+          <h1 style={{color:"white",fontSize:40,fontWeight:800,lineHeight:1.15,letterSpacing:"-1.5px",marginBottom:16}}>
+            Suas vendas,<br/><span style={{color:"#00c896"}}>organizadas e inteligentes.</span>
+          </h1>
+          <p style={{color:"rgba(255,255,255,0.45)",fontSize:16,lineHeight:1.7,marginBottom:48,fontWeight:300}}>
+            Gerencie leads, WhatsApp, e-mail e IA em uma plataforma feita para empresas brasileiras crescerem mais rápido.
+          </p>
+          <div style={{display:"flex",flexDirection:"column",gap:20}}>
+            {[{icon:"💬",text:"WhatsApp integrado — responda clientes sem sair do CRM"},{icon:"🤖",text:"IA que analisa leads e sugere a próxima ação"},{icon:"📊",text:"Funil visual para nunca perder uma oportunidade"}].map((item,i)=>(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:14}}>
+                <div style={{width:40,height:40,borderRadius:10,background:"rgba(0,200,150,0.12)",border:"1px solid rgba(0,200,150,0.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{item.icon}</div>
+                <span style={{color:"rgba(255,255,255,0.6)",fontSize:14,lineHeight:1.5}}>{item.text}</span>
+              </div>
             ))}
           </div>
-          {mode==="register"&&<><Field label="Seu nome" value={form.name} onChange={up("name")} placeholder="João Silva"/><Field label="Empresa / Workspace" value={form.company} onChange={up("company")} placeholder="Minha Empresa"/></>}
-          <Field label="E-mail" value={form.email} onChange={up("email")} placeholder="joao@empresa.com"/>
-          <Field label="Senha" value={form.pass} onChange={up("pass")} type="password" placeholder="••••••••"/>
-          {mode==="login"&&<div style={{textAlign:"right",marginBottom:16}}><span style={{fontSize:12,color:C.blue,cursor:"pointer"}}>Esqueci a senha</span></div>}
-          {error&&<div style={{background:C.redBg,color:C.redTx,borderRadius:8,padding:"10px 12px",fontSize:13,marginBottom:12}}>{error}</div>}
-          <button onClick={submit} disabled={loading} style={{width:"100%",background:C.green,color:"white",border:"none",borderRadius:8,padding:"11px",fontSize:14,fontWeight:600,cursor:"pointer",opacity:loading?0.7:1}}>
-            {loading?"Aguarde...":(mode==="login"?"Entrar na conta":"Criar conta grátis")}
-          </button>
+        </div>
+      </div>
+      {/* Right panel */}
+      <div style={{width:480,background:"white",display:"flex",flexDirection:"column",justifyContent:"center",padding:"48px 52px",boxShadow:"-20px 0 60px rgba(0,0,0,0.3)"}}>
+        <div style={{marginBottom:32}}>
+          <h2 style={{fontSize:26,fontWeight:800,color:C.text,letterSpacing:"-0.5px",marginBottom:6}}>{mode==="login"?"Bem-vindo de volta!":"Criar sua conta grátis"}</h2>
+          <p style={{fontSize:14,color:C.muted}}>{mode==="login"?"Entre na sua conta ClienData":"15 dias grátis, sem cartão de crédito"}</p>
+        </div>
+        <div style={{display:"flex",background:C.light,borderRadius:10,padding:4,marginBottom:28}}>
+          {["login","register"].map(m=>(
+            <button key={m} onClick={()=>setMode(m)} style={{flex:1,padding:"9px",border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600,background:mode===m?"white":"transparent",color:mode===m?C.text:C.slate,boxShadow:mode===m?"0 2px 8px rgba(0,0,0,0.08)":"none",transition:"all 0.2s"}}>
+              {m==="login"?"Entrar":"Criar conta"}
+            </button>
+          ))}
+        </div>
+        {mode==="register"&&<><Field label="Seu nome" value={form.name} onChange={up("name")} placeholder="João Silva"/><Field label="Empresa" value={form.company} onChange={up("company")} placeholder="Minha Empresa"/></>}
+        <Field label="E-mail" value={form.email} onChange={up("email")} placeholder="joao@empresa.com"/>
+        <Field label="Senha" value={form.pass} onChange={up("pass")} type="password" placeholder="••••••••"/>
+        {mode==="login"&&<div style={{textAlign:"right",marginBottom:20,marginTop:-6}}><span style={{fontSize:13,color:C.blue,cursor:"pointer",fontWeight:500}}>Esqueci a senha</span></div>}
+        {error&&<div style={{background:C.redBg,color:C.redTx,borderRadius:10,padding:"12px 14px",fontSize:13,marginBottom:16,display:"flex",alignItems:"center",gap:8}}>⚠ {error}</div>}
+        <button onClick={submit} disabled={loading} style={{width:"100%",background:C.green,color:"white",border:"none",borderRadius:10,padding:"13px",fontSize:15,fontWeight:700,cursor:"pointer",opacity:loading?0.7:1,boxShadow:"0 4px 20px rgba(0,200,150,0.3)",transition:"all 0.2s"}}>
+          {loading?"Aguarde...":(mode==="login"?"Entrar na conta":"Criar conta grátis — é de graça")}
+        </button>
+        {mode==="register"&&<p style={{fontSize:12,color:C.muted,textAlign:"center",marginTop:16,lineHeight:1.6}}>Ao criar sua conta você concorda com os <span style={{color:C.blue,cursor:"pointer"}}>Termos de uso</span> e a <span style={{color:C.blue,cursor:"pointer"}}>Política de privacidade</span>.</p>}
+        <div style={{marginTop:32,paddingTop:24,borderTop:`1px solid ${C.border}`,display:"flex",justifyContent:"center",gap:8,alignItems:"center"}}>
+          <svg width="20" height="20" viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="10" fill="#00c896"/><path d="M10 20C10 14.477 14.477 10 20 10C23.18 10 26.02 11.38 28 13.6L24.4 16.5C23.36 15.24 21.78 14.44 20 14.44C16.93 14.44 14.44 16.93 14.44 20C14.44 23.07 16.93 25.56 20 25.56C21.78 25.56 23.36 24.76 24.4 23.5L28 26.4C26.02 28.62 23.18 30 20 30C14.477 30 10 25.523 10 20Z" fill="#0d1117"/><circle cx="28" cy="20" r="3" fill="#0d1117"/></svg>
+          <span style={{fontSize:13,color:C.muted}}>ClienData · CRM Inteligente Brasileiro</span>
         </div>
       </div>
     </div>
@@ -129,29 +160,36 @@ function Field({label,value,onChange,type="text",placeholder}){
 
 function WorkspaceSelector({user,workspaces,onSelect}){
   return(
-    <div style={{minHeight:"100vh",background:C.light,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-      <div style={{width:"100%",maxWidth:440}}>
-        <div style={{textAlign:"center",marginBottom:28}}>
-          <div style={{width:40,height:40,background:C.green,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:700,color:"white",margin:"0 auto 10px"}}>C</div>
-          <div style={{fontSize:18,fontWeight:700,color:C.text}}>Olá, {user.name.split(" ")[0]}!</div>
-          <div style={{fontSize:13,color:C.slate,marginTop:4}}>Selecione o workspace para acessar</div>
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0d1117 0%,#0f1f2e 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+      <div style={{width:"100%",maxWidth:460}}>
+        <div style={{textAlign:"center",marginBottom:36}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginBottom:20}}>
+            <svg width="44" height="44" viewBox="0 0 40 40" fill="none">
+              <rect width="40" height="40" rx="10" fill="#00c896"/>
+              <path d="M10 20C10 14.477 14.477 10 20 10C23.18 10 26.02 11.38 28 13.6L24.4 16.5C23.36 15.24 21.78 14.44 20 14.44C16.93 14.44 14.44 16.93 14.44 20C14.44 23.07 16.93 25.56 20 25.56C21.78 25.56 23.36 24.76 24.4 23.5L28 26.4C26.02 28.62 23.18 30 20 30C14.477 30 10 25.523 10 20Z" fill="#0d1117"/>
+              <circle cx="28" cy="20" r="3" fill="#0d1117"/>
+            </svg>
+            <span style={{color:"white",fontWeight:800,fontSize:22,letterSpacing:"-0.5px"}}>Clien<span style={{color:"#00c896"}}>Data</span></span>
+          </div>
+          <div style={{fontSize:20,fontWeight:700,color:"white",letterSpacing:"-0.3px"}}>Olá, {user.name.split(" ")[0]}! 👋</div>
+          <div style={{fontSize:14,color:"rgba(255,255,255,0.4)",marginTop:6}}>Selecione o workspace para acessar</div>
         </div>
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           {workspaces.map((ws,i)=>(
-            <div key={ws.id||i} onClick={()=>onSelect(ws)} style={{...card,cursor:"pointer",display:"flex",alignItems:"center",gap:14,padding:16,transition:"transform 0.1s"}}
-              onMouseOver={e=>e.currentTarget.style.transform="translateY(-1px)"} onMouseOut={e=>e.currentTarget.style.transform="none"}>
-              <div style={{width:42,height:42,borderRadius:10,background:ws.color||WS_COLORS[i%WS_COLORS.length],display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:700,color:"white",flexShrink:0}}>{ws.name[0]}</div>
+            <div key={ws.id||i} onClick={()=>onSelect(ws)} style={{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:14,cursor:"pointer",display:"flex",alignItems:"center",gap:14,padding:18,transition:"all 0.2s"}}
+              onMouseOver={e=>{e.currentTarget.style.background="rgba(0,200,150,0.08)";e.currentTarget.style.borderColor="rgba(0,200,150,0.3)";}} onMouseOut={e=>{e.currentTarget.style.background="rgba(255,255,255,0.05)";e.currentTarget.style.borderColor="rgba(255,255,255,0.08)";}}>
+              <div style={{width:44,height:44,borderRadius:11,background:ws.color||WS_COLORS[i%WS_COLORS.length],display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:800,color:"white",flexShrink:0}}>{ws.name[0]}</div>
               <div style={{flex:1}}>
-                <div style={{fontWeight:600,color:C.text,fontSize:14}}>{ws.name}</div>
-                <div style={{fontSize:12,color:C.slate,marginTop:2}}>Plano {ws.plan||"Starter"} · Acesso: {ws.role||"Admin"}</div>
+                <div style={{fontWeight:700,color:"white",fontSize:15}}>{ws.name}</div>
+                <div style={{fontSize:12,color:"rgba(255,255,255,0.35)",marginTop:2}}>Plano {ws.plan||"Starter"} · {ws.role||"Admin"}</div>
               </div>
-              <span style={{color:C.slate,fontSize:18}}>›</span>
+              <span style={{color:"rgba(255,255,255,0.3)",fontSize:18}}>›</span>
             </div>
           ))}
-          <div style={{...card,cursor:"pointer",display:"flex",alignItems:"center",gap:14,padding:16,border:`1.5px dashed ${C.border}`}}
-            onMouseOver={e=>e.currentTarget.style.borderColor=C.green} onMouseOut={e=>e.currentTarget.style.borderColor=C.border}>
-            <div style={{width:42,height:42,borderRadius:10,background:C.light,border:`1.5px dashed ${C.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,color:C.muted}}>+</div>
-            <div style={{flex:1}}><div style={{fontWeight:600,color:C.slate,fontSize:14}}>Criar novo workspace</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>Ideal para nova empresa ou projeto</div></div>
+          <div style={{background:"transparent",border:"1.5px dashed rgba(255,255,255,0.12)",borderRadius:14,cursor:"pointer",display:"flex",alignItems:"center",gap:14,padding:18,transition:"all 0.2s"}}
+            onMouseOver={e=>e.currentTarget.style.borderColor="rgba(0,200,150,0.4)"} onMouseOut={e=>e.currentTarget.style.borderColor="rgba(255,255,255,0.12)"}>
+            <div style={{width:44,height:44,borderRadius:11,background:"rgba(255,255,255,0.04)",border:"1.5px dashed rgba(255,255,255,0.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,color:"rgba(255,255,255,0.25)"}}>+</div>
+            <div style={{flex:1}}><div style={{fontWeight:600,color:"rgba(255,255,255,0.4)",fontSize:14}}>Criar novo workspace</div><div style={{fontSize:12,color:"rgba(255,255,255,0.2)",marginTop:2}}>Para uma nova empresa ou projeto</div></div>
           </div>
         </div>
       </div>
@@ -743,32 +781,40 @@ export default function CRMPro(){
 
   return(
     <div style={{display:"flex",height:"100vh",fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif',background:C.light,overflow:"hidden"}}>
-      <div style={{width:200,background:C.dark,display:"flex",flexDirection:"column",flexShrink:0}}>
-        <div style={{padding:"14px 12px",borderBottom:"1px solid rgba(255,255,255,0.07)"}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-            <div style={{width:28,height:28,background:C.green,borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,color:"white"}}>C</div>
-            <span style={{color:"white",fontWeight:700,fontSize:14}}>CRM Pro</span>
+      <div style={{width:220,background:"#0d1117",display:"flex",flexDirection:"column",flexShrink:0,borderRight:"1px solid rgba(255,255,255,0.05)"}}>
+        <div style={{padding:"20px 16px",borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+            <svg width="32" height="32" viewBox="0 0 40 40" fill="none">
+              <rect width="40" height="40" rx="9" fill="#00c896"/>
+              <path d="M10 20C10 14.477 14.477 10 20 10C23.18 10 26.02 11.38 28 13.6L24.4 16.5C23.36 15.24 21.78 14.44 20 14.44C16.93 14.44 14.44 16.93 14.44 20C14.44 23.07 16.93 25.56 20 25.56C21.78 25.56 23.36 24.76 24.4 23.5L28 26.4C26.02 28.62 23.18 30 20 30C14.477 30 10 25.523 10 20Z" fill="#0d1117"/>
+              <circle cx="28" cy="20" r="3" fill="#0d1117"/>
+            </svg>
+            <span style={{color:"white",fontWeight:800,fontSize:16,letterSpacing:"-0.3px"}}>Clien<span style={{color:"#00c896"}}>Data</span></span>
           </div>
-          <div onClick={()=>setWorkspace(null)} style={{display:"flex",alignItems:"center",gap:8,background:"rgba(255,255,255,0.06)",borderRadius:7,padding:"6px 8px",cursor:"pointer"}} onMouseOver={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"} onMouseOut={e=>e.currentTarget.style.background="rgba(255,255,255,0.06)"}>
-            <div style={{width:20,height:20,borderRadius:4,background:workspace.color||C.green,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"white",flexShrink:0}}>{workspace.name[0]}</div>
-            <span style={{color:"#94a3b8",fontSize:11,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{workspace.name}</span>
+          <div onClick={()=>setWorkspace(null)} style={{display:"flex",alignItems:"center",gap:8,background:"rgba(255,255,255,0.05)",borderRadius:8,padding:"8px 10px",cursor:"pointer",border:"1px solid rgba(255,255,255,0.05)",transition:"all 0.2s"}} onMouseOver={e=>e.currentTarget.style.background="rgba(255,255,255,0.09)"} onMouseOut={e=>e.currentTarget.style.background="rgba(255,255,255,0.05)"}>
+            <div style={{width:22,height:22,borderRadius:6,background:workspace.color||C.green,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:800,color:"white",flexShrink:0}}>{workspace.name[0]}</div>
+            <span style={{color:"#94a3b8",fontSize:12,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontWeight:500}}>{workspace.name}</span>
             <span style={{color:"#475569",fontSize:10}}>⇅</span>
           </div>
         </div>
-        <nav style={{padding:"8px",flex:1,overflowY:"auto"}}>
+        <nav style={{padding:"10px 8px",flex:1,overflowY:"auto"}}>
           {NAV.map(item=>(
-            <button key={item.id} onClick={()=>setTab(item.id)} style={{width:"100%",display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:7,border:"none",cursor:"pointer",marginBottom:1,background:tab===item.id?"rgba(16,185,129,0.15)":"transparent",color:tab===item.id?C.green:"#94a3b8",fontSize:12,fontWeight:tab===item.id?600:400,textAlign:"left"}}>
-              <span style={{fontSize:13,width:16,textAlign:"center"}}>{item.icon}</span>{item.label}
-              {item.id==="tasks"&&overdue>0&&<span style={{marginLeft:"auto",background:C.red,color:"white",borderRadius:"50%",width:15,height:15,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700}}>{overdue}</span>}
-              {item.id==="whatsapp"&&unreadWA>0&&<span style={{marginLeft:"auto",background:C.green,color:"white",borderRadius:"50%",width:15,height:15,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700}}>{unreadWA}</span>}
+            <button key={item.id} onClick={()=>setTab(item.id)} style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:9,border:"none",cursor:"pointer",marginBottom:2,background:tab===item.id?"rgba(0,200,150,0.12)":"transparent",color:tab===item.id?"#00c896":"#64748b",fontSize:13,fontWeight:tab===item.id?600:400,textAlign:"left",transition:"all 0.15s"}}>
+              <span style={{fontSize:14,width:18,textAlign:"center",opacity:tab===item.id?1:0.7}}>{item.icon}</span>
+              <span style={{flex:1}}>{item.label}</span>
+              {item.id==="tasks"&&overdue>0&&<span style={{background:C.red,color:"white",borderRadius:"50%",width:17,height:17,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700}}>{overdue}</span>}
+              {item.id==="whatsapp"&&unreadWA>0&&<span style={{background:"#00c896",color:"#0d1117",borderRadius:"50%",width:17,height:17,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:800}}>{unreadWA}</span>}
             </button>
           ))}
         </nav>
-        <div style={{padding:"12px",borderTop:"1px solid rgba(255,255,255,0.07)"}}>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <div style={{width:28,height:28,background:C.green,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"white",flexShrink:0}}>{authUser.name.split(" ").map(n=>n[0]).join("").slice(0,2)}</div>
-            <div style={{flex:1,minWidth:0}}><div style={{color:"white",fontSize:11,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{authUser.name}</div><div style={{color:"#475569",fontSize:10}}>{workspace.role||"Admin"}</div></div>
-            <button onClick={()=>{setAuthUser(null);setWorkspace(null);setWsList([]);setTab("dashboard");localStorage.removeItem("crm_token");}} style={{background:"none",border:"none",cursor:"pointer",color:"#475569",fontSize:13}}>⏻</button>
+        <div style={{padding:"14px 12px",borderTop:"1px solid rgba(255,255,255,0.05)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,padding:"8px",borderRadius:9,background:"rgba(255,255,255,0.03)"}}>
+            <div style={{width:32,height:32,background:"linear-gradient(135deg,#00c896,#0097a7)",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800,color:"white",flexShrink:0}}>{authUser.name.split(" ").map(n=>n[0]).join("").slice(0,2)}</div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{color:"white",fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{authUser.name}</div>
+              <div style={{color:"#475569",fontSize:10,marginTop:1}}>{workspace.role||"Admin"}</div>
+            </div>
+            <button onClick={()=>{setAuthUser(null);setWorkspace(null);setWsList([]);setTab("dashboard");localStorage.removeItem("crm_token");}} style={{background:"none",border:"none",cursor:"pointer",color:"#475569",fontSize:14,padding:"4px",borderRadius:6,transition:"color 0.2s"}} title="Sair">⏻</button>
           </div>
         </div>
       </div>
