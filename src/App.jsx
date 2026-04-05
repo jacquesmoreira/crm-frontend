@@ -549,18 +549,20 @@ export default function CRMPro(){
     const [campaigns,setCampaigns]=useState([]);
     const [loadingCamp,setLoadingCamp]=useState(false);
     const [selectedAccount,setSelectedAccount]=useState("");
+    const [datePreset,setDatePreset]=useState("last_30d");
     const [error,setError]=useState("");
+    const [sortBy,setSortBy]=useState("spend");
+    const [showPaused,setShowPaused]=useState(true);
 
     useEffect(()=>{
       fetch(`${API}/api/workspaces/${workspace.id}/meta/status`,{headers:{Authorization:`Bearer ${token}`}})
         .then(r=>r.json()).then(d=>{
           setMetaStatus(d);
-          if(d.connected&&d.adAccounts?.length>0){
-            setSelectedAccount(d.adAccounts[0].id);
-          }
+          if(d.connected&&d.adAccounts?.length>0) setSelectedAccount(d.adAccounts[0].id);
         }).catch(()=>{});
-      // Verifica se voltou do OAuth
-      if(window.location.search.includes("meta=connected")){
+      // Fix bug: restaura sessão após OAuth redirect
+      const params=new URLSearchParams(window.location.search);
+      if(params.get("meta")==="connected"){
         window.history.replaceState({},"",window.location.pathname);
       }
     },[]);
@@ -568,34 +570,55 @@ export default function CRMPro(){
     useEffect(()=>{
       if(!metaStatus.connected||!selectedAccount)return;
       setLoadingCamp(true);setError("");
-      fetch(`${API}/api/workspaces/${workspace.id}/meta/campaigns?accountId=${selectedAccount}`,{headers:{Authorization:`Bearer ${token}`}})
+      fetch(`${API}/api/workspaces/${workspace.id}/meta/campaigns?accountId=${selectedAccount}&datePreset=${datePreset}`,{headers:{Authorization:`Bearer ${token}`}})
         .then(r=>r.json()).then(d=>{
           if(d.error){setError(d.error);return;}
           setCampaigns(Array.isArray(d)?d:[]);
         }).catch(()=>setError("Erro ao carregar campanhas"))
         .finally(()=>setLoadingCamp(false));
-    },[metaStatus.connected,selectedAccount]);
+    },[metaStatus.connected,selectedAccount,datePreset]);
 
     const connectMeta=()=>{
+      // Salva token no localStorage antes de sair
+      localStorage.setItem("crm_token",token);
       window.location.href=`${API}/api/meta/oauth/start?wsId=${workspace.id}&token=${token}`;
     };
 
     const disconnectMeta=async()=>{
+      if(!confirm("Deseja desconectar o Meta Ads?"))return;
       await fetch(`${API}/api/workspaces/${workspace.id}/meta/disconnect`,{method:"DELETE",headers:{Authorization:`Bearer ${token}`}});
       setMetaStatus({connected:false,adAccounts:[],connectedAt:null});
       setCampaigns([]);
     };
 
-    const getInsight=(c,key)=>{
-      const ins=c.insights?.data?.[0];
-      return ins?.[key]||0;
-    };
-
+    const getInsight=(c,key)=>c.insights?.data?.[0]?.[key]||0;
     const getLeads=(c)=>{
       const actions=c.insights?.data?.[0]?.actions||[];
-      const leadAction=actions.find(a=>a.action_type==="lead"||a.action_type==="offsite_conversion.fb_pixel_lead");
-      return leadAction?Number(leadAction.value):0;
+      const a=actions.find(x=>x.action_type==="lead"||x.action_type==="offsite_conversion.fb_pixel_lead");
+      return a?Number(a.value):0;
     };
+
+    const DATE_OPTIONS=[
+      {v:"today",l:"Hoje"},{v:"yesterday",l:"Ontem"},{v:"last_7d",l:"Últimos 7 dias"},
+      {v:"last_30d",l:"Últimos 30 dias"},{v:"last_90d",l:"Últimos 90 dias"},
+      {v:"this_month",l:"Este mês"},{v:"last_month",l:"Mês passado"}
+    ];
+
+    const filtered=campaigns
+      .filter(c=>showPaused||c.status==="ACTIVE")
+      .sort((a,b)=>{
+        if(sortBy==="spend")return Number(getInsight(b,"spend"))-Number(getInsight(a,"spend"));
+        if(sortBy==="leads")return getLeads(b)-getLeads(a);
+        if(sortBy==="clicks")return Number(getInsight(b,"clicks"))-Number(getInsight(a,"clicks"));
+        return 0;
+      });
+
+    const totalSpend=filtered.reduce((a,c)=>a+Number(getInsight(c,"spend")||0),0);
+    const totalLeads=filtered.reduce((a,c)=>a+getLeads(c),0);
+    const totalClicks=filtered.reduce((a,c)=>a+Number(getInsight(c,"clicks")||0),0);
+    const totalImpressions=filtered.reduce((a,c)=>a+Number(getInsight(c,"impressions")||0),0);
+    const avgCPL=totalLeads>0?(totalSpend/totalLeads):0;
+    const avgCPM=totalImpressions>0?(totalSpend/totalImpressions)*1000:0;
 
     if(!metaStatus.connected){
       return(
@@ -614,66 +637,122 @@ export default function CRMPro(){
       );
     }
 
-    const totalSpend=campaigns.reduce((a,c)=>a+Number(getInsight(c,"spend")||0),0);
-    const totalLeads=campaigns.reduce((a,c)=>a+getLeads(c),0);
-    const totalClicks=campaigns.reduce((a,c)=>a+Number(getInsight(c,"clicks")||0),0);
-
     return(
       <Pg title="Meta Ads" sub="Dados em tempo real do seu gerenciador de anúncios">
-        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20,flexWrap:"wrap"}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,background:C.greenBg,border:`1px solid ${C.green}`,borderRadius:8,padding:"6px 14px"}}>
+        {/* Toolbar */}
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,background:C.greenBg,border:`1px solid ${C.green}`,borderRadius:8,padding:"6px 14px",flexShrink:0}}>
             <div style={{width:8,height:8,borderRadius:"50%",background:C.green}}/>
-            <span style={{fontSize:13,color:C.greenTx,fontWeight:600}}>Meta Ads conectado</span>
+            <span style={{fontSize:13,color:C.greenTx,fontWeight:600}}>Conectado</span>
           </div>
-          {metaStatus.adAccounts.length>1&&(
-            <select value={selectedAccount} onChange={e=>setSelectedAccount(e.target.value)} style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 12px",fontSize:13,background:"white",outline:"none"}}>
-              {metaStatus.adAccounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}
+          {/* Seletor de conta */}
+          {metaStatus.adAccounts?.length>0&&(
+            <select value={selectedAccount} onChange={e=>setSelectedAccount(e.target.value)} style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"7px 12px",fontSize:13,background:"white",outline:"none",color:C.text,minWidth:200}}>
+              {metaStatus.adAccounts.map(a=><option key={a.id} value={a.id}>{a.name||a.id}</option>)}
             </select>
           )}
-          <button onClick={disconnectMeta} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 14px",fontSize:13,color:C.muted,cursor:"pointer",marginLeft:"auto"}}>Desconectar</button>
+          {/* Período */}
+          <select value={datePreset} onChange={e=>setDatePreset(e.target.value)} style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"7px 12px",fontSize:13,background:"white",outline:"none",color:C.text}}>
+            {DATE_OPTIONS.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+          </select>
+          {/* Ordenar */}
+          <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"7px 12px",fontSize:13,background:"white",outline:"none",color:C.text}}>
+            <option value="spend">Ordenar: Investimento</option>
+            <option value="leads">Ordenar: Leads</option>
+            <option value="clicks">Ordenar: Cliques</option>
+          </select>
+          {/* Mostrar pausadas */}
+          <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:C.slate,cursor:"pointer"}}>
+            <input type="checkbox" checked={showPaused} onChange={e=>setShowPaused(e.target.checked)} style={{accentColor:C.green}}/> Pausadas
+          </label>
+          <div style={{marginLeft:"auto",display:"flex",gap:8}}>
+            <button onClick={()=>{setLoadingCamp(true);fetch(`${API}/api/workspaces/${workspace.id}/meta/campaigns?accountId=${selectedAccount}&datePreset=${datePreset}`,{headers:{Authorization:`Bearer ${token}`}}).then(r=>r.json()).then(d=>{if(!d.error)setCampaigns(d);}).finally(()=>setLoadingCamp(false));}} style={{background:C.light,border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 12px",fontSize:13,cursor:"pointer",color:C.slate}}>↻ Atualizar</button>
+            <button onClick={disconnectMeta} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 14px",fontSize:13,color:C.muted,cursor:"pointer"}}>Desconectar</button>
+          </div>
         </div>
 
-        <Grid cols={3} gap={12} mb={18}>
-          {[{l:"Investimento Total",v:`R$ ${totalSpend.toLocaleString("pt-BR",{minimumFractionDigits:2})}`,c:C.amber},{l:"Leads Gerados",v:totalLeads,c:C.blue},{l:"Cliques",v:totalClicks.toLocaleString("pt-BR"),c:C.purple}].map((k,i)=>(
-            <div key={i} style={card}><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>{k.l}</div><div style={{fontSize:24,fontWeight:700,color:k.c,margin:"4px 0"}}>{k.v}</div></div>
+        {/* KPI Cards */}
+        <Grid cols={5} gap={10} mb={18}>
+          {[
+            {l:"Investimento",v:`R$ ${totalSpend.toLocaleString("pt-BR",{minimumFractionDigits:2})}`,c:C.amber},
+            {l:"Leads",v:totalLeads,c:C.blue},
+            {l:"Cliques",v:totalClicks.toLocaleString("pt-BR"),c:C.purple},
+            {l:"CPL Médio",v:avgCPL>0?`R$ ${avgCPL.toFixed(2)}`:"—",c:C.green},
+            {l:"CPM Médio",v:avgCPM>0?`R$ ${avgCPM.toFixed(2)}`:"—",c:C.slate},
+          ].map((k,i)=>(
+            <div key={i} style={card}>
+              <div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>{k.l}</div>
+              <div style={{fontSize:20,fontWeight:700,color:k.c,margin:"4px 0"}}>{k.v}</div>
+            </div>
           ))}
         </Grid>
 
-        {error&&<div style={{background:C.redBg,color:C.redTx,borderRadius:8,padding:"12px 16px",marginBottom:16,fontSize:13}}>{error}</div>}
+        {error&&<div style={{background:C.redBg,color:C.redTx,borderRadius:8,padding:"12px 16px",marginBottom:16,fontSize:13}}>⚠ {error}</div>}
 
+        {/* Tabela de campanhas */}
         <div style={{...card,padding:0,overflow:"hidden"}}>
           <div style={{padding:"14px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <STitle>Campanhas</STitle>
-            {loadingCamp&&<span style={{fontSize:12,color:C.muted}}>Carregando...</span>}
+            <div style={{fontWeight:600,color:C.text,fontSize:13}}>Campanhas <span style={{color:C.muted,fontWeight:400}}>({filtered.length})</span></div>
+            {loadingCamp&&<span style={{fontSize:12,color:C.muted}}>⟳ Carregando...</span>}
           </div>
-          {campaigns.length===0&&!loadingCamp&&(
-            <div style={{padding:40,textAlign:"center",color:C.muted,fontSize:14}}>Nenhuma campanha encontrada nesta conta.</div>
+          {filtered.length===0&&!loadingCamp&&(
+            <div style={{padding:40,textAlign:"center",color:C.muted,fontSize:14}}>Nenhuma campanha encontrada neste período.</div>
           )}
-          {campaigns.length>0&&(
+          {filtered.length>0&&(
             <div style={{overflowX:"auto"}}>
               <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
-                <thead><tr style={{background:C.light}}>{["Campanha","Status","Investido","Leads","Cliques","CPL","CPM"].map(h=><th key={h} style={{padding:"8px 14px",textAlign:"left",color:C.slate,fontWeight:600,fontSize:11,textTransform:"uppercase",letterSpacing:"0.05em",borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+                <thead>
+                  <tr style={{background:C.light}}>
+                    {["Campanha","Status","Investido","Leads","Cliques","Impressões","CPL","CPM"].map(h=>(
+                      <th key={h} style={{padding:"9px 14px",textAlign:"left",color:C.slate,fontWeight:600,fontSize:11,textTransform:"uppercase",letterSpacing:"0.05em",borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
                 <tbody>
-                  {campaigns.map(c=>{
+                  {filtered.map(c=>{
                     const spend=Number(getInsight(c,"spend")||0);
                     const leads=getLeads(c);
                     const clicks=Number(getInsight(c,"clicks")||0);
+                    const impressions=Number(getInsight(c,"impressions")||0);
                     const cpl=leads>0?(spend/leads):0;
-                    const cpm=Number(getInsight(c,"cpm")||0);
+                    const cpm=impressions>0?(spend/impressions)*1000:0;
                     const active=c.status==="ACTIVE";
                     return(
-                      <tr key={c.id} style={{borderBottom:`1px solid ${C.light}`}}>
-                        <td style={{padding:"10px 14px",fontWeight:600,color:C.text,maxWidth:250}}><div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div></td>
-                        <td style={{padding:"10px 14px"}}><span style={{background:active?C.greenBg:C.light,color:active?C.greenTx:C.slate,borderRadius:20,padding:"2px 8px",fontSize:11,fontWeight:600}}>{active?"Ativa":"Pausada"}</span></td>
-                        <td style={{padding:"10px 14px",color:C.text}}>R$ {spend.toLocaleString("pt-BR",{minimumFractionDigits:2})}</td>
-                        <td style={{padding:"10px 14px",fontWeight:700,color:C.blue}}>{leads}</td>
-                        <td style={{padding:"10px 14px",color:C.text}}>{clicks.toLocaleString("pt-BR")}</td>
-                        <td style={{padding:"10px 14px",color:cpl>0?C.text:C.muted}}>{cpl>0?`R$ ${cpl.toFixed(2)}`:"—"}</td>
-                        <td style={{padding:"10px 14px",color:C.text}}>{cpm>0?`R$ ${cpm.toFixed(2)}`:"—"}</td>
+                      <tr key={c.id} style={{borderBottom:`1px solid ${C.light}`,opacity:active?1:0.7}} onMouseOver={e=>e.currentTarget.style.background=C.light} onMouseOut={e=>e.currentTarget.style.background="white"}>
+                        <td style={{padding:"11px 14px",fontWeight:600,color:C.text,maxWidth:220}}>
+                          <div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={c.name}>{c.name}</div>
+                        </td>
+                        <td style={{padding:"11px 14px"}}>
+                          <span style={{background:active?C.greenBg:C.light,color:active?C.greenTx:C.slate,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:600}}>{active?"Ativa":"Pausada"}</span>
+                        </td>
+                        <td style={{padding:"11px 14px",fontWeight:600,color:spend>0?C.amber:C.muted}}>
+                          {spend>0?`R$ ${spend.toLocaleString("pt-BR",{minimumFractionDigits:2})}`:"R$ 0,00"}
+                        </td>
+                        <td style={{padding:"11px 14px",fontWeight:700,color:leads>0?C.blue:C.muted}}>{leads}</td>
+                        <td style={{padding:"11px 14px",color:C.text}}>{clicks>0?clicks.toLocaleString("pt-BR"):"0"}</td>
+                        <td style={{padding:"11px 14px",color:C.muted,fontSize:12}}>{impressions>0?impressions.toLocaleString("pt-BR"):"—"}</td>
+                        <td style={{padding:"11px 14px",color:cpl>0?C.text:C.muted,fontWeight:cpl>0?600:400}}>
+                          {cpl>0?`R$ ${cpl.toFixed(2)}`:"—"}
+                        </td>
+                        <td style={{padding:"11px 14px",color:cpm>0?C.text:C.muted}}>
+                          {cpm>0?`R$ ${cpm.toFixed(2)}`:"—"}
+                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
+                <tfoot>
+                  <tr style={{background:C.light,borderTop:`2px solid ${C.border}`}}>
+                    <td style={{padding:"10px 14px",fontWeight:700,color:C.text,fontSize:12}}>TOTAL</td>
+                    <td/>
+                    <td style={{padding:"10px 14px",fontWeight:700,color:C.amber}}>R$ {totalSpend.toLocaleString("pt-BR",{minimumFractionDigits:2})}</td>
+                    <td style={{padding:"10px 14px",fontWeight:700,color:C.blue}}>{totalLeads}</td>
+                    <td style={{padding:"10px 14px",fontWeight:700,color:C.text}}>{totalClicks.toLocaleString("pt-BR")}</td>
+                    <td style={{padding:"10px 14px",fontWeight:700,color:C.muted}}>{totalImpressions.toLocaleString("pt-BR")}</td>
+                    <td style={{padding:"10px 14px",fontWeight:700,color:C.text}}>{avgCPL>0?`R$ ${avgCPL.toFixed(2)}`:"—"}</td>
+                    <td style={{padding:"10px 14px",fontWeight:700,color:C.text}}>{avgCPM>0?`R$ ${avgCPM.toFixed(2)}`:"—"}</td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           )}
