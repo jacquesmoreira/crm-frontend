@@ -1221,9 +1221,17 @@ export default function CRMPro(){
     const [smtpForm,setSmtpForm]=useState({host:"",port:"465",user:"",pass:"",fromName:""});
     const [savingSmtp,setSavingSmtp]=useState(false);
     const [smtpMsg,setSmtpMsg]=useState("");
+    const [formCfg,setFormCfg]=useState({formTitle:"",formSubtitle:"",formFields:["name","email","phone","company","message"],formColor:"#00c896",formThankYou:""});
+    const [savingForm,setSavingForm]=useState(false);
+    const [formMsg,setFormMsg]=useState("");
+    const formLink=`${API}/form/${workspace.id}`;
+    const ALL_FIELDS=[{k:"name",l:"Nome"},{k:"email",l:"E-mail"},{k:"phone",l:"Telefone"},{k:"company",l:"Empresa"},{k:"message",l:"Mensagem"}];
+
     useEffect(()=>{
       fetch(`${API}/api/workspaces/${workspace.id}/email/config`,{headers:{Authorization:`Bearer ${token}`}})
         .then(r=>r.json()).then(d=>{if(d.host)setSmtpForm({host:d.host,port:String(d.port||465),user:d.user,pass:"",fromName:d.fromName});}).catch(()=>{});
+      fetch(`${API}/api/form/${workspace.id}`)
+        .then(r=>r.json()).then(d=>{setFormCfg(p=>({...p,formTitle:d.formTitle||"",formSubtitle:d.formSubtitle||"",formColor:d.formColor||"#00c896",formThankYou:d.formThankYou||"",formFields:d.formFields||["name","email","phone","company","message"]}));}).catch(()=>{});
     },[]);
     const saveSmtp=async()=>{
       setSavingSmtp(true);setSmtpMsg("");
@@ -1233,6 +1241,15 @@ export default function CRMPro(){
       }catch{setSmtpMsg("✗ Erro ao salvar");}
       setSavingSmtp(false);
     };
+    const saveForm=async()=>{
+      setSavingForm(true);setFormMsg("");
+      try{
+        const r=await fetch(`${API}/api/workspaces/${workspace.id}/form/config`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify(formCfg)});
+        if(r.ok)setFormMsg("✓ Formulário salvo!");else setFormMsg("✗ Erro ao salvar");
+      }catch{setFormMsg("✗ Erro ao salvar");}
+      setSavingForm(false);
+    };
+    const toggleField=(k)=>setFormCfg(p=>({...p,formFields:p.formFields.includes(k)?p.formFields.filter(f=>f!==k):[...p.formFields,k]}));
     const addField=async()=>{
       if(!newField.name.trim())return;
       setSavingField(true);
@@ -1276,6 +1293,53 @@ export default function CRMPro(){
             </div>
           </div>
           <div style={card}><STitle>API & Webhooks</STitle><div style={{marginTop:12}}><div style={{fontSize:12,color:C.slate,marginBottom:6}}>Webhook URL (Meta Ads)</div><div style={{background:C.light,borderRadius:8,padding:"10px 12px",fontFamily:"monospace",fontSize:11,color:C.text}}>{API}/api/webhooks/meta</div></div></div>
+          <div style={{...card,gridColumn:"1/-1"}}>
+            <STitle>📋 Formulário de Captura de Leads</STitle>
+            <p style={{fontSize:13,color:C.muted,marginTop:6,marginBottom:16}}>Compartilhe o link abaixo no seu site, bio do Instagram ou onde quiser. Leads que preencherem entram automaticamente no CRM.</p>
+            {/* Link público */}
+            <div style={{background:C.greenBg,border:`1px solid ${C.green}`,borderRadius:10,padding:"12px 16px",marginBottom:20,display:"flex",alignItems:"center",gap:10}}>
+              <div style={{flex:1,fontFamily:"monospace",fontSize:12,color:C.greenTx,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{formLink}</div>
+              <button onClick={()=>{navigator.clipboard.writeText(formLink);setFormMsg("✓ Link copiado!");setTimeout(()=>setFormMsg(""),2000);}} style={{background:C.green,color:"white",border:"none",borderRadius:7,padding:"6px 14px",cursor:"pointer",fontSize:12,fontWeight:700,flexShrink:0}}>Copiar</button>
+              <a href={formLink} target="_blank" rel="noreferrer" style={{background:C.light,color:C.slate,border:`1px solid ${C.border}`,borderRadius:7,padding:"6px 12px",fontSize:12,fontWeight:600,textDecoration:"none",flexShrink:0}}>Ver ↗</a>
+            </div>
+            {/* Configurações */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:16}}>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Título do formulário</label>
+                <input value={formCfg.formTitle} onChange={e=>setFormCfg(p=>({...p,formTitle:e.target.value}))} placeholder={`Fale com ${workspace.name}`} style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none"}}/>
+              </div>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Cor do formulário</label>
+                <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                  <input type="color" value={formCfg.formColor} onChange={e=>setFormCfg(p=>({...p,formColor:e.target.value}))} style={{width:40,height:36,border:`1px solid ${C.border}`,borderRadius:6,cursor:"pointer",padding:2}}/>
+                  <input value={formCfg.formColor} onChange={e=>setFormCfg(p=>({...p,formColor:e.target.value}))} style={{flex:1,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",fontFamily:"monospace"}}/>
+                </div>
+              </div>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Subtítulo</label>
+                <input value={formCfg.formSubtitle} onChange={e=>setFormCfg(p=>({...p,formSubtitle:e.target.value}))} placeholder="Preencha o formulário e entraremos em contato." style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none"}}/>
+              </div>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Mensagem após envio</label>
+                <input value={formCfg.formThankYou} onChange={e=>setFormCfg(p=>({...p,formThankYou:e.target.value}))} placeholder="Obrigado! Entraremos em contato em breve." style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none"}}/>
+              </div>
+            </div>
+            {/* Campos */}
+            <div style={{marginBottom:16}}>
+              <label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:8}}>Campos do formulário</label>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {ALL_FIELDS.map(f=>(
+                  <label key={f.k} style={{display:"flex",alignItems:"center",gap:6,background:formCfg.formFields.includes(f.k)?C.greenBg:C.light,border:`1px solid ${formCfg.formFields.includes(f.k)?C.green:C.border}`,borderRadius:20,padding:"5px 14px",cursor:"pointer",fontSize:13,color:formCfg.formFields.includes(f.k)?C.greenTx:C.slate,fontWeight:500}}>
+                    <input type="checkbox" checked={formCfg.formFields.includes(f.k)} onChange={()=>toggleField(f.k)} style={{display:"none"}}/>{f.l}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:12}}>
+              <button onClick={saveForm} disabled={savingForm} style={{background:C.green,color:"white",border:"none",borderRadius:8,padding:"10px 24px",cursor:"pointer",fontSize:13,fontWeight:700,opacity:savingForm?0.6:1}}>Salvar formulário</button>
+              {formMsg&&<span style={{fontSize:13,color:formMsg.startsWith("✓")?C.green:C.red,fontWeight:600}}>{formMsg}</span>}
+            </div>
+          </div>
           <div style={{...card,gridColumn:"1/-1"}}><STitle>E-mail (SMTP)</STitle>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:12}}>
               <div><label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Servidor SMTP</label><input value={smtpForm.host} onChange={e=>setSmtpForm(p=>({...p,host:e.target.value}))} placeholder="smtp.gmail.com" style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"7px 12px",fontSize:13,outline:"none",boxSizing:"border-box"}}/></div>
