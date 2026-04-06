@@ -248,6 +248,9 @@ export default function CRMPro(){
   const [editingLead,setEditingLead]=useState(null);
   const [editForm,setEditForm]=useState({});
   const [savingEdit,setSavingEdit]=useState(false);
+  const [proposalModal,setProposalModal]=useState(false);
+  const [proposal,setProposal]=useState({title:"Proposta Comercial",validDays:30,paymentTerms:"",notes:"",companyName:"",companyEmail:"",companyPhone:"",items:[{description:"",qty:1,price:""}]});
+  const [generatingPDF,setGeneratingPDF]=useState(false);
   const [tasks,setTasks]=useState([
     {id:1,title:"Ligar Fernanda Lima — contraproposta",lead:"Fernanda Lima",type:"Ligação",due:"Hoje",pri:"Alta",done:false},
     {id:2,title:"Enviar contrato Amanda Vieira",lead:"Amanda Vieira",type:"E-mail",due:"Hoje",pri:"Alta",done:false},
@@ -349,6 +352,31 @@ export default function CRMPro(){
     setTab("whatsapp");
     setTimeout(()=>setSelectedConvoId(null),500);
   };
+
+  const addItem=()=>setProposal(p=>({...p,items:[...p.items,{description:"",qty:1,price:""}]}));
+  const removeItem=(i)=>setProposal(p=>({...p,items:p.items.filter((_,idx)=>idx!==i)}));
+  const updateItem=(i,k,v)=>setProposal(p=>({...p,items:p.items.map((it,idx)=>idx===i?{...it,[k]:v}:it)}));
+  const generatePDF=async()=>{
+    if(!selLead)return;
+    setGeneratingPDF(true);
+    try{
+      const r=await fetch(`${API}/api/workspaces/${workspace.id}/leads/${selLead.id}/proposals`,{
+        method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},
+        body:JSON.stringify(proposal)
+      });
+      if(r.ok){
+        const blob=await r.blob();
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement("a");
+        a.href=url;a.download=`proposta-${selLead.name.replace(/\s+/g,"-")}.pdf`;
+        document.body.appendChild(a);a.click();document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setProposalModal(false);
+      }
+    }catch(e){alert("Erro ao gerar proposta");}
+    setGeneratingPDF(false);
+  };
+  const propTotal=proposal.items.reduce((a,it)=>a+(Number(it.qty)||1)*(Number(it.price)||0),0);
 
   if(!authUser)return <AuthScreen onLogin={handleLogin}/>;
   if(!workspace)return <WorkspaceSelector user={authUser} workspaces={wsList} onSelect={setWorkspace}/>;
@@ -1292,9 +1320,6 @@ export default function CRMPro(){
     const [loadingAct,setLoadingAct]=useState(false);
     const [newNote,setNewNote]=useState("");
     const [savingNote,setSavingNote]=useState(false);
-    const [proposalModal,setProposalModal]=useState(false);
-    const [proposal,setProposal]=useState({title:"Proposta Comercial",validDays:30,paymentTerms:"",notes:"",companyName:"",companyEmail:"",companyPhone:"",items:[{description:"",qty:1,price:""}]});
-    const [generatingPDF,setGeneratingPDF]=useState(false);
     const ACT_ICONS={CRIADO:"✦",ESTAGIO:"→",NOTA:"📝",WHATSAPP:"💬",EMAIL:"✉",LIGACAO:"📞",REUNIAO:"📅",ATRIBUIDO:"👤",SCORE:"◉"};
     const ACT_COLORS={CRIADO:C.purple,ESTAGIO:C.blue,NOTA:C.amber,WHATSAPP:C.green,EMAIL:C.blue,LIGACAO:C.green,REUNIAO:C.purple,ATRIBUIDO:C.slate,SCORE:C.amber};
     useEffect(()=>{
@@ -1316,27 +1341,6 @@ export default function CRMPro(){
     const addItem=()=>setProposal(p=>({...p,items:[...p.items,{description:"",qty:1,price:""}]}));
     const removeItem=(i)=>setProposal(p=>({...p,items:p.items.filter((_,idx)=>idx!==i)}));
     const updateItem=(i,k,v)=>setProposal(p=>({...p,items:p.items.map((it,idx)=>idx===i?{...it,[k]:v}:it)}));
-    const generatePDF=async()=>{
-      setGeneratingPDF(true);
-      try{
-        const r=await fetch(`${API}/api/workspaces/${workspace.id}/leads/${l.id}/proposals`,{
-          method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},
-          body:JSON.stringify(proposal)
-        });
-        if(r.ok){
-          const blob=await r.blob();
-          const url=URL.createObjectURL(blob);
-          const a=document.createElement("a");
-          a.href=url;a.download=`proposta-${l.name.replace(/\s+/g,"-")}.pdf`;
-          document.body.appendChild(a);a.click();document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-          setProposalModal(false);
-          setActivities(prev=>[{id:Date.now(),type:"NOTA",description:`Proposta "${proposal.title}" gerada`,createdAt:new Date()},...prev]);
-        }
-      }catch(e){alert("Erro ao gerar proposta");}
-      setGeneratingPDF(false);
-    };
-    const propTotal=proposal.items.reduce((a,it)=>a+(Number(it.qty)||1)*(Number(it.price)||0),0);
     return(
       <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:200,display:"flex",justifyContent:"flex-end"}} onClick={e=>e.target===e.currentTarget&&(setSelLead(null),setAiData(null))}>
         <div style={{width:430,background:"white",height:"100%",overflowY:"auto",boxShadow:"-8px 0 32px rgba(0,0,0,0.12)"}}>
