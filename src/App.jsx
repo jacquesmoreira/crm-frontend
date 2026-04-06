@@ -198,6 +198,32 @@ function WorkspaceSelector({user,workspaces,onSelect}){
 }
 
 export default function CRMPro(){
+  // Página de sucesso após pagamento Stripe
+  if(window.location.pathname==="/success"){
+    const plan=new URLSearchParams(window.location.search).get("plan")||"";
+    return(
+      <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0d1117 0%,#0f1f2e 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+        <div style={{background:"white",borderRadius:20,padding:"48px 40px",maxWidth:480,width:"100%",textAlign:"center",boxShadow:"0 24px 80px rgba(0,0,0,0.3)"}}>
+          <div style={{width:72,height:72,background:"#e6faf5",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 24px",fontSize:32}}>✅</div>
+          <h1 style={{fontSize:26,fontWeight:800,color:"#1e293b",letterSpacing:"-0.5px",marginBottom:10}}>Assinatura confirmada!</h1>
+          <p style={{fontSize:15,color:"#64748b",lineHeight:1.7,marginBottom:32}}>Seu plano ClienData já está ativo. Você tem acesso completo a todas as funcionalidades.</p>
+          <div style={{background:"#f8fafc",borderRadius:12,padding:"16px 20px",marginBottom:28,display:"flex",alignItems:"center",gap:12,textAlign:"left"}}>
+            <div style={{width:40,height:40,background:"#00c896",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <svg width="22" height="22" viewBox="0 0 40 40" fill="none"><path d="M10 20C10 14.477 14.477 10 20 10C23.18 10 26.02 11.38 28 13.6L24.4 16.5C23.36 15.24 21.78 14.44 20 14.44C16.93 14.44 14.44 16.93 14.44 20C14.44 23.07 16.93 25.56 20 25.56C21.78 25.56 23.36 24.76 24.4 23.5L28 26.4C26.02 28.62 23.18 30 20 30C14.477 30 10 25.523 10 20Z" fill="white"/><circle cx="28" cy="20" r="3" fill="white"/></svg>
+            </div>
+            <div>
+              <div style={{fontWeight:700,fontSize:14,color:"#1e293b"}}>Clien<span style={{color:"#00c896"}}>Data</span> {plan&&`— Plano ${plan}`}</div>
+              <div style={{fontSize:12,color:"#94a3b8",marginTop:2}}>Cobrança recorrente · Cancele quando quiser</div>
+            </div>
+          </div>
+          <button onClick={()=>window.location.href="/"} style={{width:"100%",background:"#00c896",color:"white",border:"none",borderRadius:10,padding:"14px",fontSize:15,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(0,200,150,0.3)"}}>
+            Acessar o ClienData →
+          </button>
+          <p style={{fontSize:12,color:"#94a3b8",marginTop:16}}>Você receberá um e-mail de confirmação em breve.</p>
+        </div>
+      </div>
+    );
+  }
   const [authUser,setAuthUser]=useState(null);
   const [token,setToken]=useState(localStorage.getItem("crm_token")||"");
   const [wsList,setWsList]=useState([]);
