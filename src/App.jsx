@@ -369,18 +369,160 @@ export default function CRMPro(){
   };
 
   const Dashboard=()=>{
-    const rev=[{mes:"Out",v:38},{mes:"Nov",v:52},{mes:"Dez",v:41},{mes:"Jan",v:65},{mes:"Fev",v:58},{mes:"Mar",v:74}];
+    const [kpis,setKpis]=useState(null);
+    const [leadsByDay,setLeadsByDay]=useState([]);
+    const [atRisk,setAtRisk]=useState([]);
+    const [loading,setLoading]=useState(true);
+
+    useEffect(()=>{
+      const h={Authorization:`Bearer ${token}`};
+      Promise.all([
+        fetch(`${API}/api/workspaces/${workspace.id}/reports/kpis`,{headers:h}).then(r=>r.json()),
+        fetch(`${API}/api/workspaces/${workspace.id}/reports/leads-by-day`,{headers:h}).then(r=>r.json()).catch(()=>[]),
+        fetch(`${API}/api/workspaces/${workspace.id}/reports/at-risk`,{headers:h}).then(r=>r.json()).catch(()=>[]),
+      ]).then(([k,d,r])=>{setKpis(k);setLeadsByDay(Array.isArray(d)?d:[]);setAtRisk(Array.isArray(r)?r:[]);setLoading(false);});
+    },[]);
+
+    const pipeVal=leads.filter(l=>l.stage!=="Fechado").reduce((a,l)=>a+l.value,0);
+    const stageData=STAGES.map(s=>({name:s,value:leads.filter(l=>l.stage===s).length,val:leads.filter(l=>l.stage===s).reduce((a,l)=>a+l.value,0)}));
+    const sourceData=Object.entries(leads.reduce((a,l)=>{const s=l.source||"Outros";a[s]=(a[s]||0)+1;return a;},{})).map(([n,v])=>({n,v})).sort((a,b)=>b.v-a.v);
+    const srcColors=[C.blue,C.green,C.amber,C.purple,C.slate,C.red];
+    const totalLeads=leads.length;
+    const closedLeads=leads.filter(l=>l.stage==="Fechado").length;
+    const convRate=totalLeads>0?((closedLeads/totalLeads)*100).toFixed(1):0;
+    const avgScore=totalLeads>0?Math.round(leads.reduce((a,l)=>a+(l.score||50),0)/totalLeads):0;
+    const pipeLeads=leads.filter(l=>l.stage!=="Fechado");
+    const hotLeads=pipeLeads.filter(l=>(l.score||50)>=75);
+
+    if(loading)return<Pg title="Dashboard" sub="Carregando dados..."><div style={{textAlign:"center",padding:60,color:C.muted}}>⟳ Carregando...</div></Pg>;
+
     return(
-      <Pg title="Dashboard" sub="Visão geral — Março 2026" onNew={()=>setNewLeadModal(true)}>
-        <Grid cols={4} gap={12} mb={18}>
-          {[{l:"Pipeline",v:`R$${(pipeVal/1000).toFixed(0)}K`,s:`${leads.filter(l=>l.stage!=="Fechado").length} deals`,c:C.purple},{l:"Fechado",v:"R$ 45K",s:"taxa conversão 22%",c:C.green},{l:"Tarefas",v:tasks.filter(t=>!t.done).length,s:`${overdue} atrasadas`,c:overdue>0?C.red:C.amber},{l:"WhatsApp",v:unreadWA,s:"msg não lidas",c:unreadWA>0?C.blue:C.slate}].map((k,i)=>(
-            <div key={i} style={card}><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>{k.l}</div><div style={{fontSize:26,fontWeight:700,color:k.c,margin:"4px 0"}}>{k.v}</div><div style={{fontSize:12,color:C.slate}}>{k.s}</div></div>
+      <Pg title="Dashboard" sub={`Visão geral · ${new Date().toLocaleDateString("pt-BR",{month:"long",year:"numeric"})}`} onNew={()=>setNewLeadModal(true)}>
+        {/* KPIs principais */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:18}}>
+          {[
+            {l:"Pipeline ativo",v:`R$ ${(pipeVal/1000).toFixed(0)}K`,s:`${pipeLeads.length} deals em aberto`,c:C.purple,icon:"💼"},
+            {l:"Leads quentes",v:hotLeads.length,s:`Score ≥ 75 · ${convRate}% conv.`,c:C.green,icon:"🔥"},
+            {l:"Tarefas pendentes",v:tasks.filter(t=>!t.done).length,s:`${overdue} atrasadas`,c:overdue>0?C.red:C.amber,icon:"✓"},
+            {l:"WhatsApp",v:unreadWA,s:"mensagens não lidas",c:unreadWA>0?C.blue:C.slate,icon:"💬"},
+          ].map((k,i)=>(
+            <div key={i} style={card}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                <div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:"0.06em"}}>{k.l}</div>
+                <span style={{fontSize:20}}>{k.icon}</span>
+              </div>
+              <div style={{fontSize:28,fontWeight:800,color:k.c,letterSpacing:"-1px",margin:"4px 0"}}>{k.v}</div>
+              <div style={{fontSize:12,color:C.slate}}>{k.s}</div>
+            </div>
           ))}
-        </Grid>
-        <Grid cols={2} gap={14}>
-          <div style={card}><STitle>Receita Mensal (R$ mil)</STitle><ResponsiveContainer width="100%" height={180}><BarChart data={rev}><XAxis dataKey="mes" tick={{fontSize:11,fill:C.muted}} axisLine={false} tickLine={false}/><YAxis tick={{fontSize:11,fill:C.muted}} axisLine={false} tickLine={false}/><Tooltip formatter={v=>`R$ ${v}K`} contentStyle={{borderRadius:8,border:`1px solid ${C.border}`,fontSize:12}}/><Bar dataKey="v" fill={C.green} radius={[5,5,0,0]}/></BarChart></ResponsiveContainer></div>
-          <div style={card}><STitle>Funil por Etapa</STitle>{STAGES.map(s=>{const n=leads.filter(l=>l.stage===s).length;return(<div key={s} style={{marginBottom:10}}><Row><span style={{fontSize:12,color:C.slate,width:100}}>{s}</span><div style={{flex:1,background:C.light,borderRadius:4,height:8}}><div style={{width:`${Math.min(n*22,100)}%`,background:SC[s]?.c||C.slate,height:"100%",borderRadius:4}}/></div><span style={{fontSize:12,fontWeight:600,color:C.text,width:20,textAlign:"right"}}>{n}</span></Row></div>);})}</div>
-        </Grid>
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:14,marginBottom:14}}>
+          {/* Leads por dia */}
+          <div style={card}>
+            <STitle>Leads captados por dia (últimos 30 dias)</STitle>
+            {leadsByDay.length>0?(
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={leadsByDay} barSize={10}>
+                  <XAxis dataKey="day" tick={{fontSize:10,fill:C.muted}} axisLine={false} tickLine={false} interval={4}/>
+                  <YAxis tick={{fontSize:10,fill:C.muted}} axisLine={false} tickLine={false} allowDecimals={false}/>
+                  <Tooltip contentStyle={{borderRadius:8,border:`1px solid ${C.border}`,fontSize:12}} formatter={v=>[v,"Leads"]}/>
+                  <Bar dataKey="count" fill={C.green} radius={[4,4,0,0]}/>
+                </BarChart>
+              </ResponsiveContainer>
+            ):<div style={{height:180,display:"flex",alignItems:"center",justifyContent:"center",color:C.muted,fontSize:13}}>Nenhum dado no período</div>}
+          </div>
+          {/* Origem dos leads */}
+          <div style={card}>
+            <STitle>Origem dos leads</STitle>
+            <div style={{marginTop:12,display:"flex",flexDirection:"column",gap:8}}>
+              {sourceData.slice(0,6).map((s,i)=>(
+                <div key={s.n} style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{width:8,height:8,borderRadius:"50%",background:srcColors[i],flexShrink:0}}/>
+                  <span style={{fontSize:12,color:C.slate,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.n}</span>
+                  <div style={{flex:2,background:C.light,borderRadius:4,height:6,overflow:"hidden"}}>
+                    <div style={{width:`${Math.round((s.v/totalLeads)*100)}%`,background:srcColors[i],height:"100%",borderRadius:4}}/>
+                  </div>
+                  <span style={{fontSize:11,fontWeight:600,color:C.text,width:28,textAlign:"right"}}>{s.v}</span>
+                </div>
+              ))}
+              {sourceData.length===0&&<div style={{color:C.muted,fontSize:13,textAlign:"center",padding:20}}>Nenhum lead ainda</div>}
+            </div>
+          </div>
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+          {/* Funil de conversão */}
+          <div style={card}>
+            <STitle>Funil de conversão</STitle>
+            <div style={{marginTop:12,display:"flex",flexDirection:"column",gap:6}}>
+              {stageData.map((s,i)=>{
+                const prev=i>0?stageData[i-1].value:null;
+                const pct=prev&&prev>0?Math.round((s.value/prev)*100):null;
+                const stageColor=SC[s.name]?.c||C.slate;
+                return(
+                  <div key={s.name}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                      <span style={{fontSize:12,color:C.slate,width:90,flexShrink:0}}>{s.name}</span>
+                      <div style={{flex:1,background:C.light,borderRadius:4,height:20,overflow:"hidden"}}>
+                        <div style={{width:`${totalLeads>0?Math.max((s.value/totalLeads)*100,s.value>0?8:0):0}%`,background:stageColor,height:"100%",borderRadius:4,display:"flex",alignItems:"center",paddingLeft:6,transition:"width 0.5s"}}>
+                          {s.value>0&&<span style={{color:"white",fontSize:10,fontWeight:700,whiteSpace:"nowrap"}}>{s.value}</span>}
+                        </div>
+                      </div>
+                      <div style={{width:70,textAlign:"right",flexShrink:0}}>
+                        {pct!==null&&<span style={{fontSize:11,fontWeight:600,color:pct>=50?C.green:pct>=25?C.amber:C.red}}>{pct}% conv.</span>}
+                      </div>
+                    </div>
+                    <div style={{fontSize:10,color:C.muted,paddingLeft:98,marginBottom:2}}>R$ {s.val.toLocaleString("pt-BR")}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Leads em risco + KPIs */}
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+            <div style={card}>
+              <STitle>KPIs do negócio</STitle>
+              <div style={{marginTop:10,display:"flex",flexDirection:"column",gap:0}}>
+                {[
+                  {l:"Total de leads",v:totalLeads,c:C.text},
+                  {l:"Taxa de conversão",v:`${convRate}%`,c:Number(convRate)>=20?C.green:C.amber},
+                  {l:"Score médio",v:`${avgScore}/100`,c:avgScore>=70?C.green:avgScore>=50?C.amber:C.red},
+                  {l:"Automações ativas",v:autos.filter(a=>a.active).length,c:C.purple},
+                  {l:"Tarefas atrasadas",v:overdue,c:overdue===0?C.green:C.red},
+                ].map((k,i,arr)=>(
+                  <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:i<arr.length-1?`1px solid ${C.light}`:"none"}}>
+                    <span style={{fontSize:13,color:C.text}}>{k.l}</span>
+                    <span style={{fontSize:15,fontWeight:700,color:k.c}}>{k.v}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Leads em risco */}
+        {atRisk.length>0&&(
+          <div style={{...card,borderLeft:`3px solid ${C.amber}`}}>
+            <STitle>⚠ Leads em risco — sem movimentação há mais de 5 dias</STitle>
+            <div style={{marginTop:10,display:"flex",flexDirection:"column",gap:6}}>
+              {atRisk.slice(0,5).map(l=>(
+                <div key={l.id} onClick={()=>setSelLead(l)} style={{display:"flex",alignItems:"center",gap:12,padding:"8px 0",borderBottom:`1px solid ${C.light}`,cursor:"pointer"}} onMouseOver={e=>e.currentTarget.style.background=C.light} onMouseOut={e=>e.currentTarget.style.background="white"}>
+                  <div style={{width:32,height:32,borderRadius:"50%",background:C.amberBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:C.amberTx,flexShrink:0}}>{l.name?.split(" ").map(n=>n[0]).join("").slice(0,2)}</div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,fontWeight:600,color:C.text}}>{l.name}</div>
+                    <div style={{fontSize:11,color:C.muted}}>{l.stage} · {l.company||"Sem empresa"}</div>
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontSize:12,fontWeight:600,color:C.amber}}>{l.daysSince}d parado</div>
+                    <div style={{fontSize:11,color:C.muted}}>R$ {(l.value||0).toLocaleString("pt-BR")}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </Pg>
     );
   };
@@ -872,16 +1014,174 @@ export default function CRMPro(){
   };
 
   const Reports=()=>{
-    const rev=[{mes:"Out",r:38,m:42},{mes:"Nov",r:52,m:45},{mes:"Dez",r:41,m:48},{mes:"Jan",r:65,m:50},{mes:"Fev",r:58,m:55},{mes:"Mar",r:74,m:60}];
-    const src=[{n:"Meta Ads",v:38,c:C.blue},{n:"Indicação",v:32,c:C.green},{n:"Google",v:18,c:C.amber},{n:"Orgânico",v:8,c:C.purple},{n:"Evento",v:4,c:C.slate}];
+    const [repData,setRepData]=useState(null);
+    const [period,setPeriod]=useState("30");
+    const [loading,setLoading]=useState(true);
+
+    useEffect(()=>{
+      setLoading(true);
+      const h={Authorization:`Bearer ${token}`};
+      Promise.all([
+        fetch(`${API}/api/workspaces/${workspace.id}/reports/kpis`,{headers:h}).then(r=>r.json()),
+        fetch(`${API}/api/workspaces/${workspace.id}/reports/leads-by-day`,{headers:h}).then(r=>r.json()).catch(()=>[]),
+      ]).then(([kpis,byDay])=>{setRepData({kpis,byDay:Array.isArray(byDay)?byDay:[]});setLoading(false);});
+    },[period]);
+
+    const stageData=STAGES.map(s=>({name:s,value:leads.filter(l=>l.stage===s).length,val:leads.filter(l=>l.stage===s).reduce((a,l)=>a+l.value,0)}));
+    const sourceData=Object.entries(leads.reduce((a,l)=>{const s=l.source||"Outros";a[s]=(a[s]||0)+1;return a;},{})).map(([n,v])=>({n,v})).sort((a,b)=>b.v-a.v);
+    const srcColors=[C.blue,C.green,C.amber,C.purple,C.slate,C.red];
+    const totalLeads=leads.length;
+    const closedLeads=leads.filter(l=>l.stage==="Fechado").length;
+    const closedValue=leads.filter(l=>l.stage==="Fechado").reduce((a,l)=>a+l.value,0);
+    const convRate=totalLeads>0?((closedLeads/totalLeads)*100).toFixed(1):0;
+    const avgTicket=closedLeads>0?Math.round(closedValue/closedLeads):0;
+    const avgScore=totalLeads>0?Math.round(leads.reduce((a,l)=>a+(l.score||50),0)/totalLeads):0;
+    const pipeVal=leads.filter(l=>l.stage!=="Fechado").reduce((a,l)=>a+l.value,0);
+
+    // Score distribution
+    const scoreDist=[
+      {l:"Quente (75-100)",v:leads.filter(l=>(l.score||50)>=75).length,c:C.green},
+      {l:"Morno (50-74)",v:leads.filter(l=>(l.score||50)>=50&&(l.score||50)<75).length,c:C.amber},
+      {l:"Frio (0-49)",v:leads.filter(l=>(l.score||50)<50).length,c:C.red},
+    ];
+
+    if(loading)return<Pg title="Relatórios" sub="Carregando..."><div style={{textAlign:"center",padding:60,color:C.muted}}>⟳</div></Pg>;
+
     return(
-      <Pg title="Relatórios" sub="Performance consolidada">
-        <Grid cols={2} gap={14}>
-          <div style={card}><STitle>Receita vs Meta (R$ mil)</STitle><ResponsiveContainer width="100%" height={200}><BarChart data={rev} barGap={3}><XAxis dataKey="mes" tick={{fontSize:11,fill:C.muted}} axisLine={false} tickLine={false}/><YAxis tick={{fontSize:11,fill:C.muted}} axisLine={false} tickLine={false}/><Tooltip formatter={v=>`R$ ${v}K`} contentStyle={{borderRadius:8,border:`1px solid ${C.border}`,fontSize:12}}/><Bar dataKey="r" fill={C.green} radius={[4,4,0,0]} name="Receita"/><Bar dataKey="m" fill={C.border} radius={[4,4,0,0]} name="Meta"/></BarChart></ResponsiveContainer></div>
-          <div style={card}><STitle>Origem dos Leads</STitle><ResponsiveContainer width="100%" height={160}><PieChart><Pie data={src} cx="50%" cy="50%" outerRadius={70} dataKey="v" labelLine={false}>{src.map((e,i)=><Cell key={i} fill={e.c}/>)}</Pie><Tooltip formatter={v=>`${v}%`} contentStyle={{borderRadius:8,border:`1px solid ${C.border}`,fontSize:12}}/></PieChart></ResponsiveContainer><div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:8}}>{src.map(s=><span key={s.n} style={{display:"flex",alignItems:"center",gap:4,fontSize:12,color:C.slate}}><span style={{width:8,height:8,borderRadius:"50%",background:s.c,display:"inline-block"}}/>{s.n} {s.v}%</span>)}</div></div>
-          <div style={card}><STitle>Conversão por Etapa</STitle>{STAGES.map((s,i)=>{const n=leads.filter(l=>l.stage===s).length;const prev=i>0?leads.filter(l=>l.stage===STAGES[i-1]).length:null;const pct=prev?Math.round((n/prev)*100):null;return(<div key={s} style={{display:"flex",alignItems:"center",gap:10,marginBottom:9}}><span style={{width:82,fontSize:12,color:C.slate,flexShrink:0}}>{s}</span><div style={{flex:1,background:C.light,borderRadius:4,height:22,overflow:"hidden"}}><div style={{width:`${Math.max(n*22,8)}%`,background:SC[s]?.c||C.slate,height:"100%",borderRadius:4,display:"flex",alignItems:"center",paddingLeft:8}}><span style={{color:"white",fontSize:11,fontWeight:600,whiteSpace:"nowrap"}}>{n}</span></div></div>{pct!==null?<span style={{width:38,fontSize:11,color:pct<50?C.red:C.green,fontWeight:700,textAlign:"right",flexShrink:0}}>{pct}%</span>:<span style={{width:38}}/>}</div>);})}</div>
-          <div style={card}><STitle>KPIs Principais</STitle>{[{l:"Taxa de conversão",v:"22%",ok:true},{l:"Ticket médio",v:"R$ 17,9K",ok:true},{l:"Automações ativas",v:autos.filter(a=>a.active).length,ok:true},{l:"Leads Meta Ads",v:ADS_CAMPAIGNS.reduce((a,c)=>a+c.leads,0),ok:true},{l:"Score médio",v:`${Math.round(leads.reduce((a,l)=>a+(l.score||50),0)/leads.length)}/100`,ok:true},{l:"Tarefas atrasadas",v:overdue,ok:overdue===0}].map((k,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:i<5?`1px solid ${C.light}`:"none"}}><span style={{fontSize:13,color:C.text}}>{k.l}</span><span style={{fontSize:16,fontWeight:700,color:k.ok?C.green:C.red}}>{k.v}</span></div>)}</div>
-        </Grid>
+      <Pg title="Relatórios" sub="Análise completa do seu negócio">
+        {/* Filtro período */}
+        <div style={{display:"flex",gap:8,marginBottom:18}}>
+          {[{v:"7",l:"7 dias"},{v:"30",l:"30 dias"},{v:"90",l:"90 dias"},{v:"365",l:"12 meses"}].map(o=>(
+            <button key={o.v} onClick={()=>setPeriod(o.v)} style={{padding:"6px 16px",borderRadius:20,border:`1.5px solid ${period===o.v?C.green:C.border}`,background:period===o.v?C.greenBg:"white",color:period===o.v?C.greenTx:C.slate,cursor:"pointer",fontSize:12,fontWeight:600}}>{o.l}</button>
+          ))}
+        </div>
+
+        {/* KPIs principais */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:18}}>
+          {[
+            {l:"Total de leads",v:totalLeads,s:"no CRM",c:C.blue},
+            {l:"Receita fechada",v:`R$ ${closedValue.toLocaleString("pt-BR")}`,s:`${closedLeads} clientes`,c:C.green},
+            {l:"Pipeline",v:`R$ ${(pipeVal/1000).toFixed(0)}K`,s:"em negociação",c:C.purple},
+            {l:"Taxa de conversão",v:`${convRate}%`,s:`Ticket médio R$ ${avgTicket.toLocaleString("pt-BR")}`,c:Number(convRate)>=20?C.green:C.amber},
+          ].map((k,i)=>(
+            <div key={i} style={card}>
+              <div style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>{k.l}</div>
+              <div style={{fontSize:24,fontWeight:800,color:k.c,letterSpacing:"-0.5px",margin:"4px 0"}}>{k.v}</div>
+              <div style={{fontSize:11,color:C.slate}}>{k.s}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:14,marginBottom:14}}>
+          {/* Leads por dia */}
+          <div style={card}>
+            <STitle>Captação de leads por dia</STitle>
+            {repData?.byDay?.length>0?(
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={repData.byDay} barSize={8}>
+                  <XAxis dataKey="day" tick={{fontSize:10,fill:C.muted}} axisLine={false} tickLine={false} interval={Math.floor(repData.byDay.length/6)}/>
+                  <YAxis tick={{fontSize:10,fill:C.muted}} axisLine={false} tickLine={false} allowDecimals={false}/>
+                  <Tooltip contentStyle={{borderRadius:8,border:`1px solid ${C.border}`,fontSize:12}} formatter={v=>[v,"Leads"]}/>
+                  <Bar dataKey="count" fill={C.green} radius={[3,3,0,0]}/>
+                </BarChart>
+              </ResponsiveContainer>
+            ):<div style={{height:200,display:"flex",alignItems:"center",justifyContent:"center",color:C.muted,fontSize:13}}>Nenhum lead no período</div>}
+          </div>
+          {/* Distribuição de score */}
+          <div style={card}>
+            <STitle>Qualidade dos leads</STitle>
+            <div style={{margin:"16px 0",display:"flex",flexDirection:"column",gap:12}}>
+              {scoreDist.map(s=>(
+                <div key={s.l}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                    <span style={{fontSize:12,color:C.slate}}>{s.l}</span>
+                    <span style={{fontSize:12,fontWeight:700,color:s.c}}>{s.v}</span>
+                  </div>
+                  <div style={{background:C.light,borderRadius:4,height:8,overflow:"hidden"}}>
+                    <div style={{width:`${totalLeads>0?Math.round((s.v/totalLeads)*100):0}%`,background:s.c,height:"100%",borderRadius:4,transition:"width 0.5s"}}/>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.light}`}}>
+              <div style={{display:"flex",justifyContent:"space-between"}}>
+                <span style={{fontSize:12,color:C.muted}}>Score médio</span>
+                <span style={{fontSize:14,fontWeight:700,color:avgScore>=70?C.green:avgScore>=50?C.amber:C.red}}>{avgScore}/100</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+          {/* Funil de conversão */}
+          <div style={card}>
+            <STitle>Funil de conversão por etapa</STitle>
+            <div style={{marginTop:12,display:"flex",flexDirection:"column",gap:8}}>
+              {stageData.map((s,i)=>{
+                const prev=i>0?stageData[i-1].value:null;
+                const pct=prev&&prev>0?Math.round((s.value/prev)*100):null;
+                const stageColor=SC[s.name]?.c||C.slate;
+                return(
+                  <div key={s.name} style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:12,color:C.slate,width:90,flexShrink:0}}>{s.name}</span>
+                    <div style={{flex:1,background:C.light,borderRadius:4,height:22,overflow:"hidden"}}>
+                      <div style={{width:`${totalLeads>0?Math.max((s.value/totalLeads)*100,s.value>0?6:0):0}%`,background:stageColor,height:"100%",display:"flex",alignItems:"center",paddingLeft:6}}>
+                        {s.value>0&&<span style={{color:"white",fontSize:10,fontWeight:700}}>{s.value}</span>}
+                      </div>
+                    </div>
+                    <span style={{fontSize:11,color:C.muted,width:70,textAlign:"right",flexShrink:0}}>R$ {(s.val/1000).toFixed(0)}K</span>
+                    {pct!==null&&<span style={{fontSize:11,fontWeight:700,color:pct>=50?C.green:pct>=25?C.amber:C.red,width:50,textAlign:"right",flexShrink:0}}>{pct}%</span>}
+                    {pct===null&&<span style={{width:50}}/>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Origem dos leads */}
+          <div style={card}>
+            <STitle>Leads por origem</STitle>
+            <div style={{marginTop:12,display:"flex",flexDirection:"column",gap:10}}>
+              {sourceData.slice(0,7).map((s,i)=>(
+                <div key={s.n} style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{width:10,height:10,borderRadius:"50%",background:srcColors[i%srcColors.length],flexShrink:0}}/>
+                  <span style={{fontSize:12,color:C.slate,flex:1}}>{s.n}</span>
+                  <div style={{flex:2,background:C.light,borderRadius:4,height:8,overflow:"hidden"}}>
+                    <div style={{width:`${totalLeads>0?Math.round((s.v/totalLeads)*100):0}%`,background:srcColors[i%srcColors.length],height:"100%",borderRadius:4}}/>
+                  </div>
+                  <span style={{fontSize:12,fontWeight:600,color:C.text,width:28,textAlign:"right"}}>{s.v}</span>
+                  <span style={{fontSize:11,color:C.muted,width:32,textAlign:"right"}}>{totalLeads>0?Math.round((s.v/totalLeads)*100):0}%</span>
+                </div>
+              ))}
+              {sourceData.length===0&&<div style={{color:C.muted,fontSize:13,textAlign:"center",padding:20}}>Nenhum dado</div>}
+            </div>
+          </div>
+        </div>
+
+        {/* Tabela resumo */}
+        <div style={{...card,padding:0,overflow:"hidden"}}>
+          <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`}}><STitle>Resumo executivo</STitle></div>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+            <tbody>
+              {[
+                {l:"Total de leads no CRM",v:totalLeads,c:C.text},
+                {l:"Leads fechados (clientes)",v:closedLeads,c:C.green},
+                {l:"Taxa de conversão geral",v:`${convRate}%`,c:Number(convRate)>=20?C.green:C.amber},
+                {l:"Receita total fechada",v:`R$ ${closedValue.toLocaleString("pt-BR")}`,c:C.green},
+                {l:"Ticket médio",v:`R$ ${avgTicket.toLocaleString("pt-BR")}`,c:C.text},
+                {l:"Pipeline em aberto",v:`R$ ${pipeVal.toLocaleString("pt-BR")}`,c:C.purple},
+                {l:"Score médio dos leads",v:`${avgScore}/100`,c:avgScore>=70?C.green:avgScore>=50?C.amber:C.red},
+                {l:"Automações ativas",v:autos.filter(a=>a.active).length,c:C.blue},
+                {l:"Tarefas atrasadas",v:overdue,c:overdue===0?C.green:C.red},
+              ].map((k,i,arr)=>(
+                <tr key={i} style={{borderBottom:i<arr.length-1?`1px solid ${C.light}`:"none",background:i%2===0?"white":C.light}}>
+                  <td style={{padding:"11px 16px",color:C.text}}>{k.l}</td>
+                  <td style={{padding:"11px 16px",fontWeight:700,color:k.c,textAlign:"right"}}>{k.v}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Pg>
     );
   };
