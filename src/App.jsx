@@ -1292,6 +1292,9 @@ export default function CRMPro(){
     const [loadingAct,setLoadingAct]=useState(false);
     const [newNote,setNewNote]=useState("");
     const [savingNote,setSavingNote]=useState(false);
+    const [proposalModal,setProposalModal]=useState(false);
+    const [proposal,setProposal]=useState({title:"Proposta Comercial",validDays:30,paymentTerms:"",notes:"",companyName:"",companyEmail:"",companyPhone:"",items:[{description:"",qty:1,price:""}]});
+    const [generatingPDF,setGeneratingPDF]=useState(false);
     const ACT_ICONS={CRIADO:"✦",ESTAGIO:"→",NOTA:"📝",WHATSAPP:"💬",EMAIL:"✉",LIGACAO:"📞",REUNIAO:"📅",ATRIBUIDO:"👤",SCORE:"◉"};
     const ACT_COLORS={CRIADO:C.purple,ESTAGIO:C.blue,NOTA:C.amber,WHATSAPP:C.green,EMAIL:C.blue,LIGACAO:C.green,REUNIAO:C.purple,ATRIBUIDO:C.slate,SCORE:C.amber};
     useEffect(()=>{
@@ -1310,6 +1313,30 @@ export default function CRMPro(){
       }catch{}
       setSavingNote(false);
     };
+    const addItem=()=>setProposal(p=>({...p,items:[...p.items,{description:"",qty:1,price:""}]}));
+    const removeItem=(i)=>setProposal(p=>({...p,items:p.items.filter((_,idx)=>idx!==i)}));
+    const updateItem=(i,k,v)=>setProposal(p=>({...p,items:p.items.map((it,idx)=>idx===i?{...it,[k]:v}:it)}));
+    const generatePDF=async()=>{
+      setGeneratingPDF(true);
+      try{
+        const r=await fetch(`${API}/api/workspaces/${workspace.id}/leads/${l.id}/proposals`,{
+          method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},
+          body:JSON.stringify(proposal)
+        });
+        if(r.ok){
+          const blob=await r.blob();
+          const url=URL.createObjectURL(blob);
+          const a=document.createElement("a");
+          a.href=url;a.download=`proposta-${l.name.replace(/\s+/g,"-")}.pdf`;
+          document.body.appendChild(a);a.click();document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          setProposalModal(false);
+          setActivities(prev=>[{id:Date.now(),type:"NOTA",description:`Proposta "${proposal.title}" gerada`,createdAt:new Date()},...prev]);
+        }
+      }catch(e){alert("Erro ao gerar proposta");}
+      setGeneratingPDF(false);
+    };
+    const propTotal=proposal.items.reduce((a,it)=>a+(Number(it.qty)||1)*(Number(it.price)||0),0);
     return(
       <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:200,display:"flex",justifyContent:"flex-end"}} onClick={e=>e.target===e.currentTarget&&(setSelLead(null),setAiData(null))}>
         <div style={{width:430,background:"white",height:"100%",overflowY:"auto",boxShadow:"-8px 0 32px rgba(0,0,0,0.12)"}}>
@@ -1324,7 +1351,8 @@ export default function CRMPro(){
           </div>
           <div style={{padding:"14px 20px",borderBottom:`1px solid ${C.light}`}}>
             {l.phone&&<button onClick={()=>{setSelLead(null);openLeadWhatsApp(l);}} style={{width:"100%",background:C.green,color:"white",border:"none",borderRadius:8,padding:"10px",fontSize:13,fontWeight:600,cursor:"pointer",marginBottom:8,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>💬 Enviar mensagem no WhatsApp</button>}
-            {l.email&&<button onClick={()=>setEmailModal(l)} style={{width:"100%",background:C.blueBg,color:C.blue,border:`1px solid ${C.blue}`,borderRadius:8,padding:"10px",fontSize:13,fontWeight:600,cursor:"pointer",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>✉ Enviar E-mail</button>}
+            {l.email&&<button onClick={()=>setEmailModal(l)} style={{width:"100%",background:C.blueBg,color:C.blue,border:`1px solid ${C.blue}`,borderRadius:8,padding:"10px",fontSize:13,fontWeight:600,cursor:"pointer",marginBottom:8,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>✉ Enviar E-mail</button>}
+            <button onClick={()=>setProposalModal(true)} style={{width:"100%",background:C.amberBg,color:C.amberTx,border:`1px solid ${C.amber}`,borderRadius:8,padding:"10px",fontSize:13,fontWeight:600,cursor:"pointer",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>📄 Gerar Proposta PDF</button>
             <Row mb={10}><span style={{fontWeight:600,color:C.text,fontSize:13}}>✦ Análise de IA</span><button onClick={()=>analyzeAI(l)} disabled={aiLoading} style={{background:aiLoading?C.light:C.blueBg,color:aiLoading?C.muted:C.blue,border:"none",borderRadius:6,padding:"5px 12px",cursor:aiLoading?"wait":"pointer",fontSize:12,fontWeight:600,marginLeft:"auto"}}>{aiLoading?"Analisando...":"Gerar análise"}</button></Row>
             {aiLoading&&<div style={{textAlign:"center",padding:20,color:C.muted,fontSize:13}}>✦ Analisando com IA...</div>}
             {aiData&&!aiData.error&&(<>
@@ -1447,6 +1475,85 @@ export default function CRMPro(){
       </main>
       <LeadDrawer/>
       {emailModal&&<EmailModal/>}
+      {selLead&&proposalModal&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.6)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&setProposalModal(false)}>
+          <div style={{background:"white",borderRadius:16,padding:28,width:"100%",maxWidth:600,boxShadow:"0 20px 60px rgba(0,0,0,0.25)",maxHeight:"90vh",overflowY:"auto"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+              <div>
+                <div style={{fontSize:16,fontWeight:700,color:C.text}}>📄 Gerar Proposta PDF</div>
+                <div style={{fontSize:12,color:C.muted,marginTop:2}}>Para: {selLead.name} {selLead.company?`· ${selLead.company}`:""}</div>
+              </div>
+              <button onClick={()=>setProposalModal(false)} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,color:C.muted}}>✕</button>
+            </div>
+
+            {/* Dados da empresa */}
+            <div style={{background:C.light,borderRadius:10,padding:14,marginBottom:16}}>
+              <div style={{fontSize:11,fontWeight:700,color:C.slate,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10}}>Sua Empresa</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                {[{l:"Nome da empresa",k:"companyName",ph:"Minha Empresa"},{l:"E-mail",k:"companyEmail",ph:"contato@empresa.com"},{l:"Telefone",k:"companyPhone",ph:"(47) 99999-9999"}].map(f=>(
+                  <div key={f.k}>
+                    <label style={{fontSize:11,fontWeight:600,color:C.slate,display:"block",marginBottom:3}}>{f.l}</label>
+                    <input value={proposal[f.k]} onChange={e=>setProposal(p=>({...p,[f.k]:e.target.value}))} placeholder={f.ph} style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:7,padding:"7px 10px",fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Título e validade */}
+            <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:10,marginBottom:14}}>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Título da proposta</label>
+                <input value={proposal.title} onChange={e=>setProposal(p=>({...p,title:e.target.value}))} style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+              </div>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Validade (dias)</label>
+                <input type="number" value={proposal.validDays} onChange={e=>setProposal(p=>({...p,validDays:e.target.value}))} style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+              </div>
+            </div>
+
+            {/* Itens */}
+            <div style={{marginBottom:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                <label style={{fontSize:12,fontWeight:600,color:C.text}}>Itens da proposta</label>
+                <button onClick={addItem} style={{background:C.greenBg,color:C.greenTx,border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:12,fontWeight:600}}>+ Item</button>
+              </div>
+              <div style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
+                <div style={{display:"grid",gridTemplateColumns:"3fr 60px 100px 30px",gap:0,background:C.light,padding:"6px 10px"}}>
+                  {["Descrição","Qtd","Valor (R$)",""].map(h=><div key={h} style={{fontSize:10,fontWeight:600,color:C.muted,textTransform:"uppercase"}}>{h}</div>)}
+                </div>
+                {proposal.items.map((item,i)=>(
+                  <div key={i} style={{display:"grid",gridTemplateColumns:"3fr 60px 100px 30px",gap:4,padding:"6px 10px",borderTop:`1px solid ${C.light}`}}>
+                    <input value={item.description} onChange={e=>updateItem(i,"description",e.target.value)} placeholder="Descrição do serviço..." style={{border:`1px solid ${C.border}`,borderRadius:6,padding:"5px 8px",fontSize:12,outline:"none"}}/>
+                    <input type="number" value={item.qty} onChange={e=>updateItem(i,"qty",e.target.value)} min="1" style={{border:`1px solid ${C.border}`,borderRadius:6,padding:"5px 6px",fontSize:12,outline:"none",textAlign:"center"}}/>
+                    <input type="number" value={item.price} onChange={e=>updateItem(i,"price",e.target.value)} placeholder="0,00" style={{border:`1px solid ${C.border}`,borderRadius:6,padding:"5px 8px",fontSize:12,outline:"none"}}/>
+                    <button onClick={()=>removeItem(i)} disabled={proposal.items.length===1} style={{background:"none",border:"none",cursor:"pointer",color:C.red,fontSize:14,opacity:proposal.items.length===1?0.3:1}}>✕</button>
+                  </div>
+                ))}
+                <div style={{padding:"8px 10px",background:C.light,borderTop:`1px solid ${C.border}`,display:"flex",justifyContent:"flex-end",gap:8,alignItems:"center"}}>
+                  <span style={{fontSize:12,color:C.slate}}>Total:</span>
+                  <span style={{fontSize:15,fontWeight:700,color:C.green}}>R$ {propTotal.toLocaleString("pt-BR",{minimumFractionDigits:2})}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Condições e Observações */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:20}}>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Condições de pagamento</label>
+                <textarea value={proposal.paymentTerms} onChange={e=>setProposal(p=>({...p,paymentTerms:e.target.value}))} placeholder="Ex: 50% na assinatura, 50% na entrega..." rows={3} style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:12,outline:"none",boxSizing:"border-box",resize:"none"}}/>
+              </div>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Observações</label>
+                <textarea value={proposal.notes} onChange={e=>setProposal(p=>({...p,notes:e.target.value}))} placeholder="Informações adicionais..." rows={3} style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:12,outline:"none",boxSizing:"border-box",resize:"none"}}/>
+              </div>
+            </div>
+
+            <button onClick={generatePDF} disabled={generatingPDF||!proposal.items[0].description} style={{width:"100%",background:C.amber,color:"white",border:"none",borderRadius:10,padding:"13px",fontSize:14,fontWeight:700,cursor:"pointer",opacity:(generatingPDF||!proposal.items[0].description)?0.6:1,boxShadow:"0 4px 20px rgba(245,158,11,0.3)"}}>
+              {generatingPDF?"⟳ Gerando PDF...":"📄 Baixar Proposta em PDF"}
+            </button>
+          </div>
+        </div>
+      )}
       {editingLead&&(
         <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&setEditingLead(null)}>
           <div style={{background:"white",borderRadius:16,padding:28,width:"100%",maxWidth:440,boxShadow:"0 20px 60px rgba(0,0,0,0.2)",maxHeight:"90vh",overflowY:"auto"}}>
