@@ -12,7 +12,7 @@ const C = {
   dark:"#0d1117",  text:"#1e293b",  muted:"#94a3b8",
 };
 const fmt  = n => "R$ "+n.toLocaleString("pt-BR");
-const card = {background:"white",borderRadius:12,border:`1px solid ${C.border}`,padding:"18px 20px"};
+const card = {background:"white",borderRadius:14,border:"1px solid #e8edf3",padding:"18px 20px",boxShadow:"0 1px 4px rgba(0,0,0,0.04)"};
 const SC   = {
   "Novo Lead":   {c:C.purple,bg:C.purpleBg,tx:C.purpleTx},
   "Qualificado": {c:C.blue,  bg:C.blueBg,  tx:C.blueTx},
@@ -678,7 +678,7 @@ export default function CRMPro(){
     const suggestReply=async()=>{setAiSugL(true);setAiSug(null);const last=sel.messages.filter(m=>m.from==="lead").slice(-1)[0];try{const r=await fetch(`${API}/api/ai/analyze`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,messages:[{role:"user",content:`Vendedor respondendo cliente no WhatsApp. Sugira 3 respostas curtas e eficazes para: "${last?.text||"primeiro contato"}". Retorne SOMENTE JSON: {"sugestoes":["resp1","resp2","resp3"]}`}]})});const d=await r.json();setAiSug(JSON.parse(d.content[0].text.replace(/```json|```/g,"").trim()).sugestoes);}catch{setAiSug(["Oi! Obrigado pelo contato. Podemos falar agora?","Claro! Me conta mais sobre sua necessidade.","Perfeito! Vou te passar todos os detalhes."]);}setAiSugL(false);};
     return(
       <Pg title="WhatsApp" sub={`${unreadWA} mensagens não lidas · ${convos.length} conversas`}>
-        <div style={{...card,padding:0,overflow:"hidden",display:"flex",height:520}}>
+        <div style={{...card,padding:0,overflow:"hidden",display:"flex",height:"calc(100vh - 160px)"}}>
           <div style={{width:240,borderRight:`1px solid ${C.border}`,overflowY:"auto",flexShrink:0}}>
             <div style={{padding:"12px 14px",borderBottom:`1px solid ${C.border}`,fontSize:12,fontWeight:700,color:C.text}}>Conversas</div>
             {convos.map(c=>(
@@ -1492,7 +1492,7 @@ export default function CRMPro(){
   };
 
   return(
-    <div style={{display:"flex",height:"100vh",fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif',background:C.light,overflow:"hidden"}}>
+    <div style={{display:"flex",height:"100vh",fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif',background:"#f1f5f9",overflow:"hidden"}}>
       <div style={{width:220,background:"#0d1117",display:"flex",flexDirection:"column",flexShrink:0,borderRight:"1px solid rgba(255,255,255,0.05)"}}>
         <div style={{padding:"20px 16px",borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
@@ -1530,7 +1530,7 @@ export default function CRMPro(){
           </div>
         </div>
       </div>
-      <main style={{flex:1,overflow:"auto"}}>
+      <main style={{flex:1,overflow:"auto",background:"#f1f5f9",display:"flex",flexDirection:"column"}}>
         {tab==="dashboard"   &&<Dashboard/>}
         {tab==="pipeline"    &&<Pipeline/>}
         {tab==="leads"       &&<LeadsTable/>}
@@ -1703,18 +1703,25 @@ export default function CRMPro(){
 }
 function Pg({title,sub,children,onNew}){
   return(
-    <div style={{padding:24}}>
-      <div style={{marginBottom:18,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div><h1 style={{margin:0,fontSize:19,fontWeight:700,color:"#1e293b"}}>{title}</h1><p style={{margin:"3px 0 0",fontSize:12,color:"#64748b"}}>{sub}</p></div>
-        {onNew&&<button onClick={onNew} style={{background:"#10b981",color:"white",border:"none",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:13,fontWeight:600}}>+ Novo Lead</button>}
+    <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:"100%"}}>
+      {/* Page header */}
+      <div style={{background:"white",borderBottom:"1px solid #e2e8f0",padding:"20px 28px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:10,boxShadow:"0 1px 4px rgba(0,0,0,0.04)"}}>
+        <div>
+          <h1 style={{margin:0,fontSize:20,fontWeight:800,color:"#0f172a",letterSpacing:"-0.4px"}}>{title}</h1>
+          {sub&&<p style={{margin:"3px 0 0",fontSize:12,color:"#94a3b8",fontWeight:400}}>{sub}</p>}
+        </div>
+        {onNew&&<button onClick={onNew} style={{background:"#00c896",color:"white",border:"none",borderRadius:9,padding:"9px 18px",cursor:"pointer",fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:6,boxShadow:"0 2px 12px rgba(0,200,150,0.25)",transition:"all 0.2s"}} onMouseOver={e=>e.currentTarget.style.background="#00b388"} onMouseOut={e=>e.currentTarget.style.background="#00c896"}>+ Novo Lead</button>}
       </div>
-      {children}
+      {/* Page content */}
+      <div style={{flex:1,padding:"24px 28px"}}>
+        {children}
+      </div>
     </div>
   );
 }
-function STitle({children}){return <div style={{fontWeight:600,color:"#1e293b",fontSize:13,marginBottom:8}}>{children}</div>;}
+function STitle({children}){return <div style={{fontWeight:700,color:"#0f172a",fontSize:13,marginBottom:10,letterSpacing:"-0.1px"}}>{children}</div>;}
 function Row({children,mb}){return <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:mb||0}}>{children}</div>;}
 function Grid({cols,gap,mb,children}){return <div style={{display:"grid",gridTemplateColumns:`repeat(${cols},minmax(0,1fr))`,gap,marginBottom:mb||0}}>{children}</div>;}
 function Avatar({name,size=28}){if(!name)return null;const initials=name.split(" ").map(n=>n[0]).join("");return <div style={{width:size,height:size,borderRadius:"50%",background:"#f1f5f9",border:"1px solid #e2e8f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.37,fontWeight:700,color:"#64748b",flexShrink:0}}>{initials}</div>;}
 function ScoreBadge({s}){const score=s||50;const bg=score>=80?"#ecfdf5":score>=60?"#fffbeb":"#fef2f2";const tx=score>=80?"#047857":score>=60?"#b45309":"#b91c1c";return <span style={{background:bg,color:tx,borderRadius:5,padding:"1px 7px",fontSize:11,fontWeight:700,flexShrink:0}}>{score}</span>;}
-function Toggle({active,onToggle}){return(<div onClick={e=>{e.stopPropagation();onToggle();}} style={{width:38,height:20,borderRadius:10,background:active?"#10b981":"#e2e8f0",cursor:"pointer",position:"relative",transition:"background 0.2s",flexShrink:0}}><div style={{position:"absolute",top:2,left:active?20:2,width:16,height:16,borderRadius:"50%",background:"white",transition:"left 0.2s",boxShadow:"0 1px 3px rgba(0,0,0,0.2)"}}/></div>);}
+function Toggle({active,onToggle}){return(<div onClick={e=>{e.stopPropagation();onToggle();}} style={{width:38,height:20,borderRadius:10,background:active?"#00c896":"#e2e8f0",cursor:"pointer",position:"relative",transition:"background 0.2s",flexShrink:0}}><div style={{position:"absolute",top:2,left:active?20:2,width:16,height:16,borderRadius:"50%",background:"white",transition:"left 0.2s",boxShadow:"0 1px 3px rgba(0,0,0,0.2)"}}/></div>);}
