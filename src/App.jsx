@@ -236,6 +236,7 @@ export default function CRMPro(){
   const [aiData,setAiData]=useState(null);
   const [aiLoading,setAiLoading]=useState(false);
   const [newLeadModal,setNewLeadModal]=useState(false);
+  const [limitModal,setLimitModal]=useState(false);
   const [selectedConvoId,setSelectedConvoId]=useState(null);
   const [newLeadForm,setNewLeadForm]=useState({name:"",company:"",email:"",phone:"",value:"",source:"Indicação",notes:""});
   const [savingLead,setSavingLead]=useState(false);
@@ -299,7 +300,12 @@ export default function CRMPro(){
     try{
       const r=await fetch(`${API}/api/workspaces/${workspace.id}/leads`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({...newLeadForm,value:Number(newLeadForm.value)||0})});
       const d=await r.json();
-      if(r.ok){setLeads(p=>[d,...p]);setNewLeadModal(false);setNewLeadForm({name:"",company:"",email:"",phone:"",value:"",source:"Indicação",notes:""});}
+      if(r.ok){
+        setLeads(p=>[d,...p]);setNewLeadModal(false);setNewLeadForm({name:"",company:"",email:"",phone:"",value:"",source:"Indicação",notes:""});
+      } else if(r.status===403){
+        setNewLeadModal(false);
+        setLimitModal(true);
+      }
     }catch{}
     setSavingLead(false);
   };
@@ -1197,6 +1203,23 @@ export default function CRMPro(){
             <button onClick={saveLead} disabled={savingLead||!newLeadForm.name} style={{width:"100%",background:C.green,color:"white",border:"none",borderRadius:8,padding:"11px",fontSize:14,fontWeight:600,cursor:"pointer",opacity:(savingLead||!newLeadForm.name)?0.6:1}}>
               {savingLead?"Salvando...":"Salvar Lead"}
             </button>
+          </div>
+        </div>
+      )}
+      {limitModal&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:24}}>
+          <div style={{background:"white",borderRadius:20,padding:"40px 36px",maxWidth:440,width:"100%",textAlign:"center",boxShadow:"0 24px 80px rgba(0,0,0,0.3)"}}>
+            <div style={{fontSize:44,marginBottom:16}}>🚀</div>
+            <h2 style={{fontSize:22,fontWeight:800,color:"#1e293b",letterSpacing:"-0.5px",marginBottom:10}}>Limite do plano atingido</h2>
+            <p style={{fontSize:14,color:"#64748b",lineHeight:1.7,marginBottom:28}}>Você atingiu o limite de leads do seu plano atual. Faça upgrade para continuar adicionando leads e crescer suas vendas.</p>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              <button onClick={()=>{setLimitModal(false);setTab("settings");}} style={{background:"#00c896",color:"white",border:"none",borderRadius:10,padding:"13px",fontSize:14,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(0,200,150,0.3)"}}>
+                Ver planos e fazer upgrade →
+              </button>
+              <button onClick={()=>setLimitModal(false)} style={{background:"none",border:"1px solid #e2e8f0",borderRadius:10,padding:"11px",fontSize:14,color:"#64748b",cursor:"pointer"}}>
+                Fechar
+              </button>
+            </div>
           </div>
         </div>
       )}
