@@ -365,7 +365,6 @@ export default function CRMPro(){
       setSelectedConvoId(newConvo.id);
     }
     setTab("whatsapp");
-    setTimeout(()=>setSelectedConvoId(null),500);
   };
 
   const addItem=()=>setProposal(p=>({...p,items:[...p.items,{description:"",qty:1,price:""}]}));
