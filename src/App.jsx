@@ -144,7 +144,7 @@ function AuthScreen({onLogin}) {
 }
 
 function Field({label,value,onChange,type="text",placeholder}){
-  const [show,setShow]=React.useState(false);
+  const [show,setShow]=useState(false);
   const isPass=type==="password";
   return(
     <div style={{marginBottom:14}}>
@@ -159,10 +159,10 @@ function Field({label,value,onChange,type="text",placeholder}){
 }
 
 function WorkspaceSelector({user,workspaces,onSelect,token,API}){
-  const [creating,setCreating]=React.useState(false);
-  const [newName,setNewName]=React.useState("");
-  const [loading,setLoading]=React.useState(false);
-  const [err,setErr]=React.useState("");
+  const [creating,setCreating]=useState(false);
+  const [newName,setNewName]=useState("");
+  const [loading,setLoading]=useState(false);
+  const [err,setErr]=useState("");
   const create=async()=>{
     if(!newName.trim())return;
     setLoading(true);setErr("");
@@ -1281,9 +1281,20 @@ export default function CRMPro(){
         .then(r=>r.json()).then(d=>{setFormCfg(p=>({...p,formTitle:d.formTitle||"",formSubtitle:d.formSubtitle||"",formColor:d.formColor||"#00c896",formThankYou:d.formThankYou||"",formFields:d.formFields||["name","email","phone","company","message"]}));}).catch(()=>{});
     },[]);
     const [arCfg,setArCfg]=useState({enabled:false,messages:{welcome:"",protocol:"",guarantee:"",followup24h:"",followup48h:""},escalationWords:""});
-    const [savingAr,setSavingAr]=useState(false);const [arMsg,setArMsg]=useState("");
-    useEffect(()=>{fetch(`${API}/api/workspaces/${workspace.id}/autoresponder`,{headers:{Authorization:`Bearer ${token}`}}).then(r=>r.json()).then(d=>{if(d&&d.messages)setArCfg({enabled:d.enabled||false,messages:d.messages,escalationWords:(d.escalationWords||[]).join(", ")});}).catch(()=>{});},[]);
-    const saveAr=async()=>{setSavingAr(true);setArMsg("");try{const r=await fetch(`${API}/api/workspaces/${workspace.id}/autoresponder`,{method:"PUT",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({...arCfg,escalationWords:arCfg.escalationWords.split(",").map(w=>w.trim()).filter(Boolean)})});if(r.ok)setArMsg("✓ Salvo!");else setArMsg("✗ Erro");}catch{setArMsg("✗ Erro");}setSavingAr(false);};
+    const [savingAr,setSavingAr]=useState(false);
+    const [arMsg,setArMsg]=useState("");
+    useEffect(()=>{
+      fetch(`${API}/api/workspaces/${workspace.id}/autoresponder`,{headers:{Authorization:`Bearer ${token}`}})
+        .then(r=>r.json()).then(d=>{if(d&&d.messages)setArCfg({enabled:d.enabled||false,messages:d.messages,escalationWords:(d.escalationWords||[]).join(", ")});}).catch(()=>{});
+    },[]);
+    const saveAr=async()=>{
+      setSavingAr(true);setArMsg("");
+      try{
+        const r=await fetch(`${API}/api/workspaces/${workspace.id}/autoresponder`,{method:"PUT",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({...arCfg,escalationWords:arCfg.escalationWords.split(",").map(w=>w.trim()).filter(Boolean)})});
+        if(r.ok)setArMsg("✓ Salvo!");else setArMsg("✗ Erro ao salvar");
+      }catch{setArMsg("✗ Erro ao salvar");}
+      setSavingAr(false);
+    };
     const saveSmtp=async()=>{
       setSavingSmtp(true);setSmtpMsg("");
       try{
