@@ -59,12 +59,7 @@ const INIT_AUTOS = [
 const TRIGGER_LABELS={novo_lead:"Novo lead criado",sem_atividade:"Sem atividade por",score_threshold:"Score atingir",sem_avanco:"Sem avanço no funil por"};
 const ACTION_COLORS={whatsapp:C.green,criar_tarefa:C.blue,notificar:C.amber,score:C.purple,tag:C.slate,assignee:"#f97316"};
 const ACTION_ICONS={whatsapp:"💬",criar_tarefa:"✓",notificar:"🔔",score:"◉",tag:"🏷",assignee:"👤"};
-const INIT_CONVOS = [
-  {id:1,lead:"Fernanda Lima",phone:"(11) 98765-4321",avatar:"FL",color:"#10b981",unread:0,last:"Perfeito! Vou confirmar com o financeiro ainda hoje.",time:"14:32",messages:[{from:"me",text:"Olá Fernanda! Tudo bem? Passando para confirmar nossa proposta de R$28.000.",time:"10:15"},{from:"lead",text:"Sim! Gostei muito do material. Só preciso aprovar com o financeiro.",time:"10:48"},{from:"lead",text:"Perfeito! Vou confirmar com o financeiro ainda hoje.",time:"14:32"}]},
-  {id:2,lead:"Carlos Mendes",phone:"(47) 99123-4567",avatar:"CM",color:"#3b82f6",unread:2,last:"Pode ser na sexta às 14h?",time:"09:18",messages:[{from:"me",text:"Carlos, bom dia! Sua proposta está pronta. Posso te chamar para uma call de 20min?",time:"08:45"},{from:"lead",text:"Pode ser na sexta às 14h?",time:"09:18"}]},
-  {id:3,lead:"Amanda Vieira",phone:"(51) 99876-1234",avatar:"AV",color:"#f59e0b",unread:0,last:"Vejo você quinta então 👍",time:"Ontem",messages:[{from:"lead",text:"Oi! Só confirmando a call de quinta às 15h.",time:"16:20"},{from:"me",text:"Confirmado! Te envio o link do meet em breve.",time:"16:35"},{from:"lead",text:"Vejo você quinta então 👍",time:"16:36"}]},
-  {id:4,lead:"Lucas Ferreira",phone:"(21) 98123-9876",avatar:"LF",color:"#8b5cf6",unread:1,last:"Olá! Gostaria de saber mais sobre os planos.",time:"08:02",messages:[{from:"lead",text:"Olá! Gostaria de saber mais sobre os planos.",time:"08:02"}]},
-];
+const INIT_CONVOS = [];
 const NAV=[{id:"dashboard",label:"Dashboard",icon:"⊞"},{id:"pipeline",label:"Pipeline",icon:"⋮⋮"},{id:"leads",label:"Leads",icon:"◉"},{id:"tasks",label:"Tarefas",icon:"✓"},{id:"whatsapp",label:"WhatsApp",icon:"💬"},{id:"automations",label:"Automações",icon:"⚡"},{id:"metaads",label:"Meta Ads",icon:"↗"},{id:"reports",label:"Relatórios",icon:"📊"},{id:"settings",label:"Configurações",icon:"⚙"}];
 const WS_COLORS=["#10b981","#3b82f6","#f59e0b","#8b5cf6","#ef4444","#f97316"];
 const DEFAULT_STAGES=["Novo Lead","Qualificado","Proposta","Negociação","Fechado"];
@@ -287,29 +282,26 @@ export default function CRMPro(){
     socket.on("wa_message",(msg)=>{
       const mp=msg.phone.replace(/\D/g,"");
       setConvos(prev=>{
-        const exists=prev.find(c=>{
-          if(!c.phone)return false;
-          const cp=c.phone.replace(/\D/g,"");
-          return mp.includes(cp.slice(-8))||cp.includes(mp.slice(-8));
-        });
+        const exists=prev.find(c=>c.phone&&c.phone.replace(/\D/g,"").endsWith(mp.slice(-8)));
         if(exists){
           return prev.map(c=>{
-            if(!c.phone)return c;
-            const cp=c.phone.replace(/\D/g,"");
-            if(mp.includes(cp.slice(-8))||cp.includes(mp.slice(-8))){
-              return{...c,messages:[...c.messages,{from:msg.from,text:msg.text,time:new Date(msg.time).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}],last:msg.text,unread:msg.from==="lead"?c.unread+1:c.unread,time:new Date(msg.time).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})};
-            }
-            return c;
+            if(!c.phone||!c.phone.replace(/\D/g,"").endsWith(mp.slice(-8)))return c;
+            return{...c,messages:[...c.messages,{from:msg.from,text:msg.text,time:new Date(msg.time).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}],last:msg.text,unread:msg.from==="lead"?c.unread+1:c.unread,time:new Date(msg.time).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})};
           });
         } else if(msg.from==="lead"){
-          // Cria nova conversa para número desconhecido
-          const initials=msg.phone.slice(-4);
-          const newConvo={id:Date.now(),lead:msg.phone,phone:msg.phone,avatar:initials.slice(-2),color:WS_COLORS[prev.length%WS_COLORS.length],unread:1,last:msg.text,time:new Date(msg.time).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}),messages:[{from:msg.from,text:msg.text,time:new Date(msg.time).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}]};
+          const newConvo={id:msg.convId||Date.now(),lead:msg.leadName||msg.phone,phone:msg.phone,avatar:(msg.leadName||msg.phone).slice(0,2).toUpperCase(),color:WS_COLORS[prev.length%WS_COLORS.length],unread:1,last:msg.text,time:new Date(msg.time).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}),messages:[{from:msg.from,text:msg.text,time:new Date(msg.time).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}]};
           return[newConvo,...prev];
         }
         return prev;
       });
     });
+    // Carregar conversas do banco
+    fetch(`${API}/api/workspaces/${workspace.id}/whatsapp/conversations`,{headers:{Authorization:`Bearer ${token}`}})
+      .then(r=>r.json()).then(data=>{
+        if(Array.isArray(data)){
+          setConvos(data.map((c,i)=>({id:c.id,lead:c.lead?.name||c.phone,phone:c.phone,avatar:(c.lead?.name||c.phone).slice(0,2).toUpperCase(),color:WS_COLORS[i%WS_COLORS.length],unread:c.unread||0,last:c.lastMessage||"",time:c.updatedAt?new Date(c.updatedAt).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):"",messages:[]})));
+        }
+      }).catch(()=>{});
     return()=>socket.disconnect();
   },[workspace]);
 
@@ -683,12 +675,23 @@ export default function CRMPro(){
   };
 
   const WhatsApp=()=>{
-    const [sel,setSel]=useState(()=>convos.find(c=>c.id===selectedConvoId)||convos[0]);
+    const [sel,setSel]=useState(()=>convos.find(c=>c.id===selectedConvoId)||convos[0]||null);
     const [msg,setMsg]=useState("");const [aiSug,setAiSug]=useState(null);const [aiSugL,setAiSugL]=useState(false);const endRef=useRef(null);
-    useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"});},[sel]);
-    useEffect(()=>{setSel(prev=>convos.find(c=>c.id===prev?.id)||convos[0]);},[convos]);
-    useEffect(()=>{if(selectedConvoId){const c=convos.find(x=>x.id===selectedConvoId);if(c)setSel(c);}},[selectedConvoId,convos]);
-    const send=async()=>{if(!msg.trim())return;const text=msg;setMsg("");const nm={from:"me",text,time:new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})};setConvos(prev=>prev.map(c=>c.id===sel.id?{...c,messages:[...c.messages,nm],last:text,unread:0}:c));setSel(prev=>({...prev,messages:[...prev.messages,nm]}));try{await fetch(`${API}/api/workspaces/${workspace.id}/whatsapp/send`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({phone:"55"+sel.phone.replace(/\D/g,""),message:text})});}catch(e){console.error("Erro WA:",e);}};
+    useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"});},[sel?.messages]);
+    useEffect(()=>{setSel(prev=>convos.find(c=>c.id===prev?.id)||convos[0]||null);},[convos]);
+    useEffect(()=>{if(selectedConvoId){const c=convos.find(x=>x.id===selectedConvoId);if(c)loadAndSelect(c);}},[selectedConvoId]);
+    const loadAndSelect=async(c)=>{
+      if(!c)return;
+      if(c.messages&&c.messages.length>0){setSel(c);return;}
+      try{
+        const r=await fetch(`${API}/api/workspaces/${workspace.id}/whatsapp/conversations/${c.id}/messages`,{headers:{Authorization:`Bearer ${token}`}});
+        const msgs=await r.json();
+        const loaded={...c,messages:Array.isArray(msgs)?msgs.map(m=>({from:m.from,text:m.text,time:new Date(m.sentAt).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})})):[]};
+        setConvos(prev=>prev.map(x=>x.id===c.id?loaded:x));
+        setSel(loaded);
+      }catch{setSel(c);}
+    };
+    const send=async()=>{if(!msg.trim()||!sel)return;const text=msg;setMsg("");const nm={from:"me",text,time:new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})};setConvos(prev=>prev.map(c=>c.id===sel.id?{...c,messages:[...c.messages,nm],last:text,unread:0}:c));setSel(prev=>({...prev,messages:[...prev.messages,nm]}));try{let ph=sel.phone.replace(/\D/g,"");if(!ph.startsWith("55"))ph="55"+ph;await fetch(`${API}/api/workspaces/${workspace.id}/whatsapp/send`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({phone:ph,message:text})});}catch(e){console.error("Erro WA:",e);}};
     const suggestReply=async()=>{setAiSugL(true);setAiSug(null);const last=sel.messages.filter(m=>m.from==="lead").slice(-1)[0];try{const r=await fetch(`${API}/api/ai/analyze`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,messages:[{role:"user",content:`Vendedor respondendo cliente no WhatsApp. Sugira 3 respostas curtas e eficazes para: "${last?.text||"primeiro contato"}". Retorne SOMENTE JSON: {"sugestoes":["resp1","resp2","resp3"]}`}]})});const d=await r.json();setAiSug(JSON.parse(d.content[0].text.replace(/```json|```/g,"").trim()).sugestoes);}catch{setAiSug(["Oi! Obrigado pelo contato. Podemos falar agora?","Claro! Me conta mais sobre sua necessidade.","Perfeito! Vou te passar todos os detalhes."]);}setAiSugL(false);};
     return(
       <Pg title="WhatsApp" sub={`${unreadWA} mensagens não lidas · ${convos.length} conversas`}>
@@ -696,7 +699,7 @@ export default function CRMPro(){
           <div style={{width:240,borderRight:`1px solid ${C.border}`,overflowY:"auto",flexShrink:0}}>
             <div style={{padding:"12px 14px",borderBottom:`1px solid ${C.border}`,fontSize:12,fontWeight:700,color:C.text}}>Conversas</div>
             {convos.map(c=>(
-              <div key={c.id} onClick={()=>{setSel(c);setConvos(prev=>prev.map(x=>x.id===c.id?{...x,unread:0}:x));setAiSug(null);}} style={{display:"flex",gap:10,padding:"11px 14px",cursor:"pointer",background:sel?.id===c.id?C.light:"white",borderBottom:`1px solid ${C.light}`,alignItems:"center"}}>
+              <div key={c.id} onClick={()=>{loadAndSelect(c);setConvos(prev=>prev.map(x=>x.id===c.id?{...x,unread:0}:x));setAiSug(null);}} style={{display:"flex",gap:10,padding:"11px 14px",cursor:"pointer",background:sel?.id===c.id?C.light:"white",borderBottom:`1px solid ${C.light}`,alignItems:"center"}}>
                 <div style={{width:36,height:36,borderRadius:"50%",background:c.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"white",flexShrink:0}}>{c.avatar}</div>
                 <div style={{flex:1,minWidth:0}}><Row mb={2}><span style={{fontSize:12,fontWeight:600,color:C.text,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.lead}</span><span style={{fontSize:10,color:C.muted,flexShrink:0}}>{c.time}</span></Row><div style={{fontSize:11,color:C.slate,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.last}</div></div>
                 {c.unread>0&&<div style={{width:18,height:18,borderRadius:"50%",background:C.green,color:"white",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{c.unread}</div>}
