@@ -683,13 +683,13 @@ export default function CRMPro(){
     const loadAndSelect=async(c)=>{
       if(!c)return;
       if(c.messages&&c.messages.length>0){setSel(c);return;}
+      setSel(c);
       try{
         const r=await fetch(`${API}/api/workspaces/${workspace.id}/whatsapp/conversations/${c.id}/messages`,{headers:{Authorization:`Bearer ${token}`}});
         const msgs=await r.json();
         const loaded={...c,messages:Array.isArray(msgs)?msgs.map(m=>({from:m.from,text:m.text,time:new Date(m.sentAt).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})})):[]};
-        setConvos(prev=>prev.map(x=>x.id===c.id?loaded:x));
         setSel(loaded);
-      }catch{setSel(c);}
+      }catch{}
     };
     const send=async()=>{if(!msg.trim()||!sel)return;const text=msg;setMsg("");const nm={from:"me",text,time:new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})};setConvos(prev=>prev.map(c=>c.id===sel.id?{...c,messages:[...c.messages,nm],last:text,unread:0}:c));setSel(prev=>({...prev,messages:[...prev.messages,nm]}));try{let ph=sel.phone.replace(/\D/g,"");if(!ph.startsWith("55"))ph="55"+ph;await fetch(`${API}/api/workspaces/${workspace.id}/whatsapp/send`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({phone:ph,message:text})});}catch(e){console.error("Erro WA:",e);}};
     const suggestReply=async()=>{setAiSugL(true);setAiSug(null);const last=sel.messages.filter(m=>m.from==="lead").slice(-1)[0];try{const r=await fetch(`${API}/api/ai/analyze`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,messages:[{role:"user",content:`Vendedor respondendo cliente no WhatsApp. Sugira 3 respostas curtas e eficazes para: "${last?.text||"primeiro contato"}". Retorne SOMENTE JSON: {"sugestoes":["resp1","resp2","resp3"]}`}]})});const d=await r.json();setAiSug(JSON.parse(d.content[0].text.replace(/```json|```/g,"").trim()).sugestoes);}catch{setAiSug(["Oi! Obrigado pelo contato. Podemos falar agora?","Claro! Me conta mais sobre sua necessidade.","Perfeito! Vou te passar todos os detalhes."]);}setAiSugL(false);};
