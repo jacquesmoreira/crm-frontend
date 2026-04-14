@@ -286,14 +286,29 @@ export default function CRMPro(){
     socket.emit("join",workspace.id);
     socket.on("wa_message",(msg)=>{
       const mp=msg.phone.replace(/\D/g,"");
-      setConvos(prev=>prev.map(c=>{
-        if(!c.phone)return c;
-        const cp=c.phone.replace(/\D/g,"");
-        if(mp.includes(cp.slice(-8))||cp.includes(mp.slice(-8))){
-          return{...c,messages:[...c.messages,{from:msg.from,text:msg.text,time:new Date(msg.time).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}],last:msg.text,unread:msg.from==="lead"?c.unread+1:c.unread};
+      setConvos(prev=>{
+        const exists=prev.find(c=>{
+          if(!c.phone)return false;
+          const cp=c.phone.replace(/\D/g,"");
+          return mp.includes(cp.slice(-8))||cp.includes(mp.slice(-8));
+        });
+        if(exists){
+          return prev.map(c=>{
+            if(!c.phone)return c;
+            const cp=c.phone.replace(/\D/g,"");
+            if(mp.includes(cp.slice(-8))||cp.includes(mp.slice(-8))){
+              return{...c,messages:[...c.messages,{from:msg.from,text:msg.text,time:new Date(msg.time).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}],last:msg.text,unread:msg.from==="lead"?c.unread+1:c.unread,time:new Date(msg.time).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})};
+            }
+            return c;
+          });
+        } else if(msg.from==="lead"){
+          // Cria nova conversa para número desconhecido
+          const initials=msg.phone.slice(-4);
+          const newConvo={id:Date.now(),lead:msg.phone,phone:msg.phone,avatar:initials.slice(-2),color:WS_COLORS[prev.length%WS_COLORS.length],unread:1,last:msg.text,time:new Date(msg.time).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}),messages:[{from:msg.from,text:msg.text,time:new Date(msg.time).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}]};
+          return[newConvo,...prev];
         }
-        return c;
-      }));
+        return prev;
+      });
     });
     return()=>socket.disconnect();
   },[workspace]);
@@ -350,6 +365,7 @@ export default function CRMPro(){
       setSelectedConvoId(newConvo.id);
     }
     setTab("whatsapp");
+    setTimeout(()=>setSelectedConvoId(null),500);
   };
 
   const addItem=()=>setProposal(p=>({...p,items:[...p.items,{description:"",qty:1,price:""}]}));
@@ -681,7 +697,7 @@ export default function CRMPro(){
           <div style={{width:240,borderRight:`1px solid ${C.border}`,overflowY:"auto",flexShrink:0}}>
             <div style={{padding:"12px 14px",borderBottom:`1px solid ${C.border}`,fontSize:12,fontWeight:700,color:C.text}}>Conversas</div>
             {convos.map(c=>(
-              <div key={c.id} onClick={()=>{setSel(c);setSelectedConvoId(c.id);setConvos(prev=>prev.map(x=>x.id===c.id?{...x,unread:0}:x));setAiSug(null);}} style={{display:"flex",gap:10,padding:"11px 14px",cursor:"pointer",background:sel?.id===c.id?C.light:"white",borderBottom:`1px solid ${C.light}`,alignItems:"center"}}>
+              <div key={c.id} onClick={()=>{setSel(c);setConvos(prev=>prev.map(x=>x.id===c.id?{...x,unread:0}:x));setAiSug(null);}} style={{display:"flex",gap:10,padding:"11px 14px",cursor:"pointer",background:sel?.id===c.id?C.light:"white",borderBottom:`1px solid ${C.light}`,alignItems:"center"}}>
                 <div style={{width:36,height:36,borderRadius:"50%",background:c.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"white",flexShrink:0}}>{c.avatar}</div>
                 <div style={{flex:1,minWidth:0}}><Row mb={2}><span style={{fontSize:12,fontWeight:600,color:C.text,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.lead}</span><span style={{fontSize:10,color:C.muted,flexShrink:0}}>{c.time}</span></Row><div style={{fontSize:11,color:C.slate,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.last}</div></div>
                 {c.unread>0&&<div style={{width:18,height:18,borderRadius:"50%",background:C.green,color:"white",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{c.unread}</div>}
