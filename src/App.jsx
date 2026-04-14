@@ -144,16 +144,36 @@ function AuthScreen({onLogin}) {
 }
 
 function Field({label,value,onChange,type="text",placeholder}){
+  const [show,setShow]=React.useState(false);
+  const isPass=type==="password";
   return(
     <div style={{marginBottom:14}}>
       <label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:5}}>{label}</label>
-      <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
-        style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 12px",fontSize:13,color:C.text,outline:"none",boxSizing:"border-box",background:"white"}}/>
+      <div style={{position:"relative"}}>
+        <input type={isPass&&!show?"password":"text"} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
+          style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:isPass?"9px 38px 9px 12px":"9px 12px",fontSize:13,color:C.text,outline:"none",boxSizing:"border-box",background:"white"}}/>
+        {isPass&&<button type="button" onClick={()=>setShow(s=>!s)} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:15,padding:2,lineHeight:1}}>{show?"🙈":"👁"}</button>}
+      </div>
     </div>
   );
 }
 
-function WorkspaceSelector({user,workspaces,onSelect}){
+function WorkspaceSelector({user,workspaces,onSelect,token,API}){
+  const [creating,setCreating]=React.useState(false);
+  const [newName,setNewName]=React.useState("");
+  const [loading,setLoading]=React.useState(false);
+  const [err,setErr]=React.useState("");
+  const create=async()=>{
+    if(!newName.trim())return;
+    setLoading(true);setErr("");
+    try{
+      const r=await fetch(API+"/api/workspaces",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({name:newName})});
+      const d=await r.json();
+      if(!r.ok)throw new Error(d.error||"Erro");
+      onSelect({...d,role:"ADMIN"});
+    }catch(e){setErr(e.message);}
+    setLoading(false);
+  };
   return(
     <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0d1117 0%,#0f1f2e 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
       <div style={{width:"100%",maxWidth:460}}>
@@ -181,11 +201,21 @@ function WorkspaceSelector({user,workspaces,onSelect}){
               <span style={{color:"rgba(255,255,255,0.3)",fontSize:18}}>›</span>
             </div>
           ))}
-          <div style={{background:"transparent",border:"1.5px dashed rgba(255,255,255,0.12)",borderRadius:14,cursor:"pointer",display:"flex",alignItems:"center",gap:14,padding:18,transition:"all 0.2s"}}
+          {!creating?(
+          <div onClick={()=>setCreating(true)} style={{background:"transparent",border:"1.5px dashed rgba(255,255,255,0.12)",borderRadius:14,cursor:"pointer",display:"flex",alignItems:"center",gap:14,padding:18,transition:"all 0.2s"}}
             onMouseOver={e=>e.currentTarget.style.borderColor="rgba(0,200,150,0.4)"} onMouseOut={e=>e.currentTarget.style.borderColor="rgba(255,255,255,0.12)"}>
             <div style={{width:44,height:44,borderRadius:11,background:"rgba(255,255,255,0.04)",border:"1.5px dashed rgba(255,255,255,0.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,color:"rgba(255,255,255,0.25)"}}>+</div>
             <div style={{flex:1}}><div style={{fontWeight:600,color:"rgba(255,255,255,0.4)",fontSize:14}}>Criar novo workspace</div><div style={{fontSize:12,color:"rgba(255,255,255,0.2)",marginTop:2}}>Para uma nova empresa ou projeto</div></div>
-          </div>
+          </div>):(
+          <div style={{background:"rgba(255,255,255,0.05)",border:"1.5px solid rgba(0,200,150,0.3)",borderRadius:14,padding:18}}>
+            <div style={{fontSize:14,fontWeight:600,color:"white",marginBottom:12}}>Nome do novo workspace</div>
+            <input autoFocus value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&create()} placeholder="Ex: Clínica Dr. Augusto" style={{width:"100%",background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:8,padding:"10px 14px",fontSize:14,color:"white",outline:"none",boxSizing:"border-box",marginBottom:10}}/>
+            {err&&<div style={{color:"#f87171",fontSize:12,marginBottom:8}}>{err}</div>}
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={create} disabled={loading} style={{flex:1,background:"#00c896",color:"white",border:"none",borderRadius:8,padding:"10px",fontSize:14,fontWeight:700,cursor:"pointer"}}>{loading?"Criando...":"Criar workspace"}</button>
+              <button onClick={()=>{setCreating(false);setNewName("");setErr("");}} style={{background:"rgba(255,255,255,0.08)",color:"rgba(255,255,255,0.5)",border:"none",borderRadius:8,padding:"10px 16px",fontSize:14,cursor:"pointer"}}>Cancelar</button>
+            </div>
+          </div>)}
         </div>
       </div>
     </div>
@@ -385,7 +415,7 @@ export default function CRMPro(){
   const propTotal=proposal.items.reduce((a,it)=>a+(Number(it.qty)||1)*(Number(it.price)||0),0);
 
   if(!authUser)return <AuthScreen onLogin={handleLogin}/>;
-  if(!workspace)return <WorkspaceSelector user={authUser} workspaces={wsList} onSelect={setWorkspace}/>;
+  if(!workspace)return <WorkspaceSelector user={authUser} workspaces={wsList} onSelect={setWorkspace} token={token} API={API}/>;
 
   const overdue=tasks.filter(t=>t.due==="Atrasado"&&!t.done).length;
   const unreadWA=convos.reduce((a,c)=>a+c.unread,0);
@@ -1250,6 +1280,10 @@ export default function CRMPro(){
       fetch(`${API}/api/form/${workspace.id}`)
         .then(r=>r.json()).then(d=>{setFormCfg(p=>({...p,formTitle:d.formTitle||"",formSubtitle:d.formSubtitle||"",formColor:d.formColor||"#00c896",formThankYou:d.formThankYou||"",formFields:d.formFields||["name","email","phone","company","message"]}));}).catch(()=>{});
     },[]);
+    const [arCfg,setArCfg]=useState({enabled:false,messages:{welcome:"",protocol:"",guarantee:"",followup24h:"",followup48h:""},escalationWords:""});
+    const [savingAr,setSavingAr]=useState(false);const [arMsg,setArMsg]=useState("");
+    useEffect(()=>{fetch(`${API}/api/workspaces/${workspace.id}/autoresponder`,{headers:{Authorization:`Bearer ${token}`}}).then(r=>r.json()).then(d=>{if(d&&d.messages)setArCfg({enabled:d.enabled||false,messages:d.messages,escalationWords:(d.escalationWords||[]).join(", ")});}).catch(()=>{});},[]);
+    const saveAr=async()=>{setSavingAr(true);setArMsg("");try{const r=await fetch(`${API}/api/workspaces/${workspace.id}/autoresponder`,{method:"PUT",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({...arCfg,escalationWords:arCfg.escalationWords.split(",").map(w=>w.trim()).filter(Boolean)})});if(r.ok)setArMsg("✓ Salvo!");else setArMsg("✗ Erro");}catch{setArMsg("✗ Erro");}setSavingAr(false);};
     const saveSmtp=async()=>{
       setSavingSmtp(true);setSmtpMsg("");
       try{
@@ -1391,6 +1425,31 @@ export default function CRMPro(){
             </div>
           </div>
         </Grid>
+        <div style={{...card,marginTop:14}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+            <div><div style={{fontWeight:700,fontSize:14,color:C.text}}>🤖 Autoresponder WhatsApp</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>Configure as mensagens automáticas enviadas aos seus leads</div></div>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:12,color:C.slate}}>{arCfg.enabled?"Ativo":"Inativo"}</span>
+              <div onClick={()=>setArCfg(p=>({...p,enabled:!p.enabled}))} style={{width:40,height:22,borderRadius:11,background:arCfg.enabled?C.green:C.border,cursor:"pointer",position:"relative",transition:"background 0.2s"}}>
+                <div style={{position:"absolute",top:2,left:arCfg.enabled?20:2,width:18,height:18,borderRadius:"50%",background:"white",transition:"left 0.2s",boxShadow:"0 1px 4px rgba(0,0,0,0.2)"}}/>
+              </div>
+            </div>
+          </div>
+          {[{k:"welcome",l:"1ª Mensagem — Boas-vindas (3s após contato)"},{k:"protocol",l:"2ª Mensagem — Apresentação/Oferta (30s após resposta)"},{k:"guarantee",l:"3ª Mensagem — Garantia (2min após oferta)"},{k:"followup24h",l:"Follow-up 24h"},{k:"followup48h",l:"Follow-up 48h"}].map(({k,l})=>(
+            <div key={k} style={{marginBottom:14}}>
+              <label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:5}}>{l}</label>
+              <textarea value={arCfg.messages[k]||""} onChange={e=>setArCfg(p=>({...p,messages:{...p.messages,[k]:e.target.value}}))} rows={4} style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 12px",fontSize:13,color:C.text,outline:"none",boxSizing:"border-box",resize:"vertical",fontFamily:"inherit"}}/>
+            </div>
+          ))}
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:5}}>Palavras que escalam para atendimento humano (separadas por vírgula)</label>
+            <input value={arCfg.escalationWords} onChange={e=>setArCfg(p=>({...p,escalationWords:e.target.value}))} placeholder="cirurgia, emergência, cancelar, reembolso" style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 12px",fontSize:13,color:C.text,outline:"none",boxSizing:"border-box"}}/>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <button onClick={saveAr} disabled={savingAr} style={{background:C.green,color:"white",border:"none",borderRadius:8,padding:"9px 20px",fontSize:13,fontWeight:700,cursor:"pointer"}}>{savingAr?"Salvando...":"Salvar autoresponder"}</button>
+            {arMsg&&<span style={{fontSize:13,color:arMsg.startsWith("✓")?C.greenTx:C.red}}>{arMsg}</span>}
+          </div>
+        </div>
       </Pg>
     );
   };
