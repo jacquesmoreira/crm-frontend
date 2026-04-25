@@ -262,6 +262,7 @@ export default function CRMPro(){
   const [aiLoading,setAiLoading]=useState(false);
   const [newLeadModal,setNewLeadModal]=useState(false);
   const [limitModal,setLimitModal]=useState(false);
+  const [duplicateModal,setDuplicateModal]=useState(null);
   const [selectedConvoId,setSelectedConvoId]=useState(null);
   const [newLeadForm,setNewLeadForm]=useState({name:"",company:"",email:"",phone:"",value:"",source:"Indicação",notes:""});
   const [savingLead,setSavingLead]=useState(false);
@@ -335,16 +336,17 @@ export default function CRMPro(){
     return()=>socket.disconnect();
   },[workspace]);
 
-  const saveLead=async()=>{
+  const saveLead=async(force=false)=>{
     setSavingLead(true);
     try{
-      const r=await fetch(`${API}/api/workspaces/${workspace.id}/leads`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({...newLeadForm,value:Number(newLeadForm.value)||0})});
+      const r=await fetch(`${API}/api/workspaces/${workspace.id}/leads`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({...newLeadForm,value:Number(newLeadForm.value)||0,force})});
       const d=await r.json();
       if(r.ok){
-        setLeads(p=>[d,...p]);setNewLeadModal(false);setNewLeadForm({name:"",company:"",email:"",phone:"",value:"",source:"Indicação",notes:""});
+        setLeads(p=>[d,...p]);setNewLeadModal(false);setDuplicateModal(null);setNewLeadForm({name:"",company:"",email:"",phone:"",value:"",source:"Indicação",notes:""});
       } else if(r.status===403){
-        setNewLeadModal(false);
-        setLimitModal(true);
+        setNewLeadModal(false);setLimitModal(true);
+      } else if(r.status===409&&d.duplicate){
+        setDuplicateModal(d.duplicate);
       }
     }catch{}
     setSavingLead(false);
@@ -1791,6 +1793,26 @@ export default function CRMPro(){
       </main>
       <LeadDrawer/>
       {emailModal&&<EmailModal/>}
+      {duplicateModal&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.6)",zIndex:600,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+          <div style={{background:"white",borderRadius:16,padding:32,width:"100%",maxWidth:420,boxShadow:"0 20px 60px rgba(0,0,0,0.25)"}}>
+            <div style={{fontSize:36,textAlign:"center",marginBottom:12}}>⚠️</div>
+            <h3 style={{fontSize:18,fontWeight:700,color:C.text,textAlign:"center",marginBottom:8}}>Lead duplicado encontrado</h3>
+            <p style={{fontSize:13,color:C.muted,textAlign:"center",marginBottom:20,lineHeight:1.6}}>Já existe um lead com este e-mail ou telefone no seu CRM.</p>
+            <div style={{background:C.light,borderRadius:10,padding:14,marginBottom:20}}>
+              <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:4}}>{duplicateModal.name}</div>
+              {duplicateModal.email&&<div style={{fontSize:12,color:C.muted}}>{duplicateModal.email}</div>}
+              {duplicateModal.phone&&<div style={{fontSize:12,color:C.muted}}>{duplicateModal.phone}</div>}
+              <div style={{fontSize:11,marginTop:6}}><span style={{background:SC[duplicateModal.stage]?.bg||C.light,color:SC[duplicateModal.stage]?.tx||C.slate,borderRadius:20,padding:"2px 8px",fontWeight:600}}>{duplicateModal.stage}</span></div>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              <button onClick={()=>{setSelLead(duplicateModal);setDuplicateModal(null);setNewLeadModal(false);}} style={{background:C.blue,color:"white",border:"none",borderRadius:8,padding:"11px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Ver lead existente</button>
+              <button onClick={()=>saveLead(true)} disabled={savingLead} style={{background:C.amber,color:"white",border:"none",borderRadius:8,padding:"11px",fontSize:13,fontWeight:600,cursor:"pointer",opacity:savingLead?0.6:1}}>Criar mesmo assim</button>
+              <button onClick={()=>setDuplicateModal(null)} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"10px",fontSize:13,color:C.muted,cursor:"pointer"}}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
       {selLead&&proposalModal&&(
         <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.6)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&setProposalModal(false)}>
           <div style={{background:"white",borderRadius:16,padding:28,width:"100%",maxWidth:600,boxShadow:"0 20px 60px rgba(0,0,0,0.25)",maxHeight:"90vh",overflowY:"auto"}}>
@@ -1974,5 +1996,3 @@ function Avatar({name,size=28}){if(!name)return null;const initials=name.split("
 function ScoreBadge({s}){const score=s||50;const bg=score>=80?"#ecfdf5":score>=60?"#fffbeb":"#fef2f2";const tx=score>=80?"#047857":score>=60?"#b45309":"#b91c1c";return <span style={{background:bg,color:tx,borderRadius:5,padding:"1px 7px",fontSize:11,fontWeight:700,flexShrink:0}}>{score}</span>;}
 function Toggle({active,onToggle}){return(<div onClick={e=>{e.stopPropagation();onToggle();}} style={{width:38,height:20,borderRadius:10,background:active?"#00c896":"#e2e8f0",cursor:"pointer",position:"relative",transition:"background 0.2s",flexShrink:0}}><div style={{position:"absolute",top:2,left:active?20:2,width:16,height:16,borderRadius:"50%",background:"white",transition:"left 0.2s",boxShadow:"0 1px 3px rgba(0,0,0,0.2)"}}/></div>);}
 
-
- 
