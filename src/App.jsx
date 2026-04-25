@@ -1860,11 +1860,10 @@ Responda APENAS com o e-mail, sem nenhum comentário. Primeira linha = assunto (
           ))}
         </nav>
         <div style={{padding:"14px 12px",borderTop:"1px solid rgba(255,255,255,0.05)"}}>
-          {showInstall&&(
-            <button onClick={installApp} style={{width:"100%",background:"rgba(0,200,150,0.1)",color:"#00c896",border:"1px solid rgba(0,200,150,0.2)",borderRadius:8,padding:"8px",fontSize:12,fontWeight:600,cursor:"pointer",marginBottom:8,display:"flex",alignItems:"center",gap:6,justifyContent:"center"}}>
-              📲 Instalar app
-            </button>
-          )}
+          {/* Install button - always visible */}
+          <button onClick={installPrompt?installApp:()=>alert("Para instalar:\n\nAndroid: Menu (⋮) → Adicionar à tela inicial\n\niPhone: Compartilhar (□↑) → Adicionar à Tela de Início")} style={{width:"100%",background:"rgba(0,200,150,0.1)",color:"#00c896",border:"1px solid rgba(0,200,150,0.2)",borderRadius:8,padding:"8px",fontSize:12,fontWeight:600,cursor:"pointer",marginBottom:8,display:"flex",alignItems:"center",gap:6,justifyContent:"center"}}>
+            📲 Instalar app
+          </button>
           <div style={{display:"flex",alignItems:"center",gap:10,padding:"8px",borderRadius:9,background:"rgba(255,255,255,0.03)"}}>
             <div style={{width:32,height:32,background:"linear-gradient(135deg,#00c896,#0097a7)",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800,color:"white",flexShrink:0}}>{authUser.name.split(" ").map(n=>n[0]).join("").slice(0,2)}</div>
             <div style={{flex:1,minWidth:0}}>
@@ -1910,7 +1909,7 @@ Responda APENAS com o e-mail, sem nenhum comentário. Primeira linha = assunto (
               </button>
             ))}
             <div style={{marginTop:"auto",paddingTop:12,borderTop:"1px solid rgba(255,255,255,0.07)",display:"flex",flexDirection:"column",gap:8}}>
-              {showInstall&&<button onClick={()=>{installApp();setMobileMenuOpen(false);}} style={{background:"rgba(0,200,150,0.1)",color:"#00c896",border:"1px solid rgba(0,200,150,0.2)",borderRadius:8,padding:"10px",fontSize:13,fontWeight:600,cursor:"pointer"}}>📲 Instalar app no celular</button>}
+              <button onClick={()=>{installPrompt?installApp():alert("Para instalar:\n\nAndroid: Menu (⋮) → Adicionar à tela inicial\n\niPhone: Compartilhar (□↑) → Adicionar à Tela de Início");setMobileMenuOpen(false);}} style={{background:"rgba(0,200,150,0.1)",color:"#00c896",border:"1px solid rgba(0,200,150,0.2)",borderRadius:8,padding:"10px",fontSize:13,fontWeight:600,cursor:"pointer"}}>📲 Instalar app no celular</button>
               <button onClick={()=>{setWorkspace(null);setMobileMenuOpen(false);}} style={{background:"rgba(255,255,255,0.04)",color:"#94a3b8",border:"none",borderRadius:8,padding:"10px",fontSize:13,cursor:"pointer"}}>⇅ Trocar workspace</button>
               <button onClick={()=>{setAuthUser(null);setWorkspace(null);setWsList([]);setTab("dashboard");localStorage.removeItem("crm_token");}} style={{background:"none",color:"#ef4444",border:"1px solid rgba(239,68,68,0.2)",borderRadius:8,padding:"10px",fontSize:13,cursor:"pointer"}}>⏻ Sair</button>
             </div>
