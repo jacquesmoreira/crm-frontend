@@ -1711,30 +1711,84 @@ export default function CRMPro(){
     const [subj,setSubj]=useState("");
     const [body,setBody]=useState("");
     const [sending,setSending]=useState(false);
+    const [generating,setGenerating]=useState(false);
     const [msg,setMsg]=useState("");
+    const l=emailModal;
+
+    const generateWithAI=async()=>{
+      setGenerating(true);setMsg("");
+      try{
+        // Busca histórico do lead
+        const actR=await fetch(`${API}/api/workspaces/${workspace.id}/leads/${l.id}/activities`,{headers:{Authorization:`Bearer ${token}`}});
+        const activities=await actR.json().catch(()=>[]);
+        const history=Array.isArray(activities)?activities.slice(0,5).map(a=>a.description).join(" | "):"";
+        const prompt=`Você é um assistente de vendas profissional brasileiro. Escreva um e-mail comercial personalizado para este lead:
+
+Nome: ${l.name}
+Empresa: ${l.company||"não informada"}
+Etapa do funil: ${l.stage||"Novo Lead"}
+Histórico recente: ${history||"primeiro contato"}
+
+Regras:
+- Tom profissional mas amigável, em português brasileiro
+- Máximo 4 parágrafos curtos
+- Foque no próximo passo (agendar reunião, apresentar proposta, etc.) de acordo com a etapa
+- Não mencione o CRM ou sistema
+- Assine como "Equipe ${workspace.name}"
+
+Responda APENAS com o e-mail, sem nenhum comentário. Primeira linha = assunto (prefixado com "Assunto: "), depois uma linha em branco, depois o corpo.`;
+
+        const r=await fetch(`${API}/api/ai/analyze`,{
+          method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},
+          body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:600,messages:[{role:"user",content:prompt}]})
+        });
+        const d=await r.json();
+        const text=d.content?.[0]?.text||"";
+        const lines=text.split("\n");
+        const subjLine=lines.find(l=>l.startsWith("Assunto:"));
+        if(subjLine) setSubj(subjLine.replace("Assunto:","").trim());
+        const bodyStart=lines.findIndex(l=>l.startsWith("Assunto:"))+2;
+        setBody(lines.slice(bodyStart).join("\n").trim());
+        setMsg("✨ E-mail gerado pela IA");
+      }catch{setMsg("✗ Erro ao gerar");}
+      setGenerating(false);
+    };
+
     const send=async()=>{
       setSending(true);setMsg("");
       try{
-        const r=await fetch(`${API}/api/workspaces/${workspace.id}/email/send`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({to:emailModal.email,subject:subj,body,leadId:emailModal.id})});
+        const r=await fetch(`${API}/api/workspaces/${workspace.id}/email/send`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({to:l.email,subject:subj,body,leadId:l.id})});
         const d=await r.json();
         if(r.ok){setMsg("✓ E-mail enviado!");setTimeout(()=>setEmailModal(null),1500);}
         else setMsg("✗ "+(d.error||"Erro"));
       }catch{setMsg("✗ Erro ao enviar");}
       setSending(false);
     };
+
     return(
       <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&setEmailModal(null)}>
-        <div style={{background:"white",borderRadius:16,padding:28,width:"100%",maxWidth:500,boxShadow:"0 20px 60px rgba(0,0,0,0.2)"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+        <div style={{background:"white",borderRadius:16,padding:28,width:"100%",maxWidth:520,boxShadow:"0 20px 60px rgba(0,0,0,0.2)"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
             <span style={{fontSize:16,fontWeight:700,color:C.text}}>✉ Enviar E-mail</span>
-            <button onClick={()=>setEmailModal(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,color:C.muted}}>✕</button>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <button onClick={generateWithAI} disabled={generating} style={{background:"linear-gradient(135deg,#7c3aed,#4f46e5)",color:"white",border:"none",borderRadius:8,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:700,display:"flex",alignItems:"center",gap:6,opacity:generating?0.7:1}}>
+                {generating?"⟳ Gerando...":"✨ Gerar com IA"}
+              </button>
+              <button onClick={()=>setEmailModal(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,color:C.muted}}>✕</button>
+            </div>
           </div>
-          <div style={{marginBottom:12}}><label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Para</label><input value={emailModal.email} readOnly style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:C.light}}/></div>
+          {/* Lead info */}
+          <div style={{background:C.light,borderRadius:8,padding:"8px 12px",marginBottom:14,fontSize:12,color:C.slate,display:"flex",gap:12}}>
+            <span>👤 {l.name}</span>
+            {l.company&&<span>🏢 {l.company}</span>}
+            <span style={{background:SC[l.stage]?.bg||C.light,color:SC[l.stage]?.tx||C.slate,borderRadius:20,padding:"0px 8px",fontWeight:600}}>{l.stage}</span>
+          </div>
+          <div style={{marginBottom:12}}><label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Para</label><input value={l.email} readOnly style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",boxSizing:"border-box",background:C.light}}/></div>
           <div style={{marginBottom:12}}><label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Assunto</label><input value={subj} onChange={e=>setSubj(e.target.value)} placeholder="Assunto do e-mail" style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",boxSizing:"border-box"}}/></div>
-          <div style={{marginBottom:20}}><label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Mensagem</label><textarea value={body} onChange={e=>setBody(e.target.value)} rows={6} placeholder="Escreva sua mensagem..." style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",boxSizing:"border-box",resize:"vertical"}}/></div>
+          <div style={{marginBottom:16}}><label style={{fontSize:12,fontWeight:600,color:C.text,display:"block",marginBottom:4}}>Mensagem</label><textarea value={body} onChange={e=>setBody(e.target.value)} rows={8} placeholder="Escreva sua mensagem ou clique em ✨ Gerar com IA..." style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",boxSizing:"border-box",resize:"vertical"}}/></div>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
             <button onClick={send} disabled={sending||!subj.trim()||!body.trim()} style={{background:C.blue,color:"white",border:"none",borderRadius:8,padding:"11px 24px",cursor:"pointer",fontSize:14,fontWeight:600,opacity:(sending||!subj.trim()||!body.trim())?0.6:1}}>{sending?"Enviando...":"Enviar"}</button>
-            {msg&&<span style={{fontSize:13,color:msg.startsWith("✓")?C.green:C.red,fontWeight:500}}>{msg}</span>}
+            {msg&&<span style={{fontSize:13,color:msg.startsWith("✓")||msg.startsWith("✨")?C.green:C.red,fontWeight:500}}>{msg}</span>}
           </div>
         </div>
       </div>
