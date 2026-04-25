@@ -1090,8 +1090,10 @@ export default function CRMPro(){
 
   const Reports=()=>{
     const [repData,setRepData]=useState(null);
+    const [forecast,setForecast]=useState(null);
     const [period,setPeriod]=useState("30");
     const [loading,setLoading]=useState(true);
+    const [activeTab,setActiveTab]=useState("overview");
 
     useEffect(()=>{
       setLoading(true);
@@ -1099,7 +1101,8 @@ export default function CRMPro(){
       Promise.all([
         fetch(`${API}/api/workspaces/${workspace.id}/reports/kpis`,{headers:h}).then(r=>r.json()),
         fetch(`${API}/api/workspaces/${workspace.id}/reports/leads-by-day`,{headers:h}).then(r=>r.json()).catch(()=>[]),
-      ]).then(([kpis,byDay])=>{setRepData({kpis,byDay:Array.isArray(byDay)?byDay:[]});setLoading(false);});
+        fetch(`${API}/api/workspaces/${workspace.id}/reports/forecast`,{headers:h}).then(r=>r.json()).catch(()=>null),
+      ]).then(([kpis,byDay,fc])=>{setRepData({kpis,byDay:Array.isArray(byDay)?byDay:[]});setForecast(fc);setLoading(false);});
     },[period]);
 
     const stageData=STAGES.map(s=>({name:s,value:leads.filter(l=>l.stage===s).length,val:leads.filter(l=>l.stage===s).reduce((a,l)=>a+l.value,0)}));
@@ -1124,15 +1127,108 @@ export default function CRMPro(){
 
     return(
       <Pg title="Relatórios" sub="Análise completa do seu negócio">
-        {/* Filtro período */}
-        <div style={{display:"flex",gap:8,marginBottom:18}}>
-          {[{v:"7",l:"7 dias"},{v:"30",l:"30 dias"},{v:"90",l:"90 dias"},{v:"365",l:"12 meses"}].map(o=>(
-            <button key={o.v} onClick={()=>setPeriod(o.v)} style={{padding:"6px 16px",borderRadius:20,border:`1.5px solid ${period===o.v?C.green:C.border}`,background:period===o.v?C.greenBg:"white",color:period===o.v?C.greenTx:C.slate,cursor:"pointer",fontSize:12,fontWeight:600}}>{o.l}</button>
+        {/* Tabs */}
+        <div style={{display:"flex",gap:4,marginBottom:20,background:"white",padding:4,borderRadius:10,border:`1px solid ${C.border}`,width:"fit-content"}}>
+          {[{v:"overview",l:"📊 Visão Geral"},{v:"forecast",l:"🎯 Forecasting"},{v:"funnel",l:"🔀 Funil"}].map(t=>(
+            <button key={t.v} onClick={()=>setActiveTab(t.v)} style={{padding:"7px 18px",borderRadius:7,border:"none",background:activeTab===t.v?C.green:"transparent",color:activeTab===t.v?"white":C.slate,cursor:"pointer",fontSize:13,fontWeight:600,transition:"all 0.15s"}}>{t.l}</button>
           ))}
         </div>
 
-        {/* KPIs principais */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:18}}>
+        {/* Filtro período */}
+        <div style={{display:"flex",gap:8,marginBottom:18}}>
+          {[{v:"7",l:"7 dias"},{v:"30",l:"30 dias"},{v:"90",l:"90 dias"},{v:"365",l:"12 meses"}].map(o=>(
+            <button key={o.v} onClick={()=>setPeriod(o.v)} style={{padding:"5px 14px",borderRadius:20,border:`1.5px solid ${period===o.v?C.green:C.border}`,background:period===o.v?C.greenBg:"white",color:period===o.v?C.greenTx:C.slate,cursor:"pointer",fontSize:12,fontWeight:600}}>{o.l}</button>
+          ))}
+        </div>
+
+        {/* ── FORECASTING TAB ── */}
+        {activeTab==="forecast"&&forecast&&(
+          <div>
+            {/* KPIs forecast */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:18}}>
+              {[
+                {l:"Previsão de receita",v:`R$ ${Math.round(forecast.forecastTotal).toLocaleString("pt-BR")}`,s:"Pipeline ponderado",c:C.purple,icon:"🎯"},
+                {l:"Fechado este mês",v:`R$ ${forecast.closedValue.toLocaleString("pt-BR")}`,s:forecast.closedLastValue>0?`vs R$ ${forecast.closedLastValue.toLocaleString("pt-BR")} mês ant.`:"Mês atual",c:C.green,icon:"✅"},
+                {l:"Pipeline total",v:`R$ ${forecast.totalPipeline.toLocaleString("pt-BR")}`,s:"Sem ponderação",c:C.blue,icon:"💼"},
+                {l:"Fechados (30 dias)",v:forecast.recentClosedCount,s:"negócios fechados",c:C.amber,icon:"🏆"},
+              ].map((k,i)=>(
+                <div key={i} style={card}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                    <span style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:"0.06em"}}>{k.l}</span>
+                    <span style={{fontSize:18}}>{k.icon}</span>
+                  </div>
+                  <div style={{fontSize:22,fontWeight:800,color:k.c,letterSpacing:"-0.5px",margin:"4px 0"}}>{k.v}</div>
+                  <div style={{fontSize:11,color:C.slate}}>{k.s}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Pipeline ponderado por etapa */}
+            <div style={card}>
+              <STitle>Pipeline ponderado por probabilidade de fechamento</STitle>
+              <p style={{fontSize:12,color:C.muted,marginBottom:16}}>Cada etapa tem uma probabilidade estimada de conversão. O valor ponderado é o que realmente conta para a previsão.</p>
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {Object.entries(forecast.byStage).filter(([s])=>s!=="Fechado").map(([stage,data])=>{
+                  const pct=Math.round(data.prob*100);
+                  const stageColor=SC[stage]?.c||C.slate;
+                  const barWidth=forecast.totalPipeline>0?Math.round((data.total/forecast.totalPipeline)*100):0;
+                  return(
+                    <div key={stage} style={{display:"grid",gridTemplateColumns:"130px 1fr 100px 120px 110px",alignItems:"center",gap:12}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}>
+                        <div style={{width:8,height:8,borderRadius:"50%",background:stageColor,flexShrink:0}}/>
+                        <span style={{fontSize:12,color:C.text,fontWeight:500}}>{stage}</span>
+                      </div>
+                      <div style={{background:C.light,borderRadius:4,height:16,overflow:"hidden"}}>
+                        <div style={{width:`${barWidth}%`,background:stageColor,height:"100%",borderRadius:4,opacity:0.7}}/>
+                      </div>
+                      <div style={{textAlign:"right",fontSize:12,color:C.muted}}>{data.count} leads</div>
+                      <div style={{textAlign:"right",fontSize:12,color:C.text,fontWeight:600}}>R$ {data.total.toLocaleString("pt-BR")}</div>
+                      <div style={{textAlign:"right"}}>
+                        <span style={{background:C.purpleBg,color:C.purpleTx,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>{pct}% → R$ {Math.round(data.weighted).toLocaleString("pt-BR")}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Total ponderado */}
+              <div style={{marginTop:16,paddingTop:14,borderTop:`2px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontSize:13,fontWeight:700,color:C.text}}>Previsão total ponderada</span>
+                <span style={{fontSize:20,fontWeight:800,color:C.purple}}>R$ {Math.round(forecast.forecastTotal).toLocaleString("pt-BR")}</span>
+              </div>
+            </div>
+
+            {/* Comparativo meses */}
+            {(forecast.closedValue>0||forecast.closedLastValue>0)&&(
+              <div style={{...card,marginTop:14}}>
+                <STitle>Comparativo mensal</STitle>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,marginTop:12}}>
+                  {[{l:"Mês passado",v:forecast.closedLastValue,c:C.slate},{l:"Este mês",v:forecast.closedValue,c:C.green}].map((m,i)=>(
+                    <div key={i}>
+                      <div style={{fontSize:12,color:C.muted,marginBottom:4}}>{m.l}</div>
+                      <div style={{fontSize:24,fontWeight:800,color:m.c}}>R$ {m.v.toLocaleString("pt-BR")}</div>
+                      <div style={{marginTop:8,background:C.light,borderRadius:4,height:8,overflow:"hidden"}}>
+                        <div style={{width:`${Math.max(forecast.closedLastValue,forecast.closedValue)>0?Math.round((m.v/Math.max(forecast.closedLastValue,forecast.closedValue))*100):0}%`,background:m.c,height:"100%",borderRadius:4}}/>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {forecast.closedLastValue>0&&(
+                  <div style={{marginTop:12,fontSize:13,color:forecast.closedValue>=forecast.closedLastValue?C.green:C.red,fontWeight:600}}>
+                    {forecast.closedValue>=forecast.closedLastValue?"📈":"📉"} {forecast.closedLastValue>0?`${Math.round(((forecast.closedValue-forecast.closedLastValue)/forecast.closedLastValue)*100)}% vs mês anterior`:""}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab==="forecast"&&!forecast&&(
+          <div style={{...card,textAlign:"center",padding:40,color:C.muted}}>Nenhum dado de forecast disponível ainda.</div>
+        )}
+
+        {/* ── VISÃO GERAL TAB ── */}
+        {activeTab==="overview"&&(
+          <div>
           {[
             {l:"Total de leads",v:totalLeads,s:"no CRM",c:C.blue},
             {l:"Receita fechada",v:`R$ ${closedValue.toLocaleString("pt-BR")}`,s:`${closedLeads} clientes`,c:C.green},
@@ -1257,6 +1353,71 @@ export default function CRMPro(){
             </tbody>
           </table>
         </div>
+        </div>)} {/* end overview tab */}
+
+        {/* ── FUNIL TAB ── */}
+        {activeTab==="funnel"&&(
+          <div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:18}}>
+              {[
+                {l:"Total leads",v:totalLeads,c:C.blue},
+                {l:"Tx. conversão",v:`${convRate}%`,c:Number(convRate)>=20?C.green:C.amber},
+                {l:"Receita fechada",v:`R$ ${closedValue.toLocaleString("pt-BR")}`,c:C.green},
+                {l:"Ticket médio",v:`R$ ${avgTicket.toLocaleString("pt-BR")}`,c:C.purple},
+              ].map((k,i)=>(
+                <div key={i} style={card}>
+                  <div style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>{k.l}</div>
+                  <div style={{fontSize:22,fontWeight:800,color:k.c,margin:"4px 0"}}>{k.v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+              <div style={card}>
+                <STitle>Funil por etapa — volume e valor</STitle>
+                <div style={{marginTop:14,display:"flex",flexDirection:"column",gap:12}}>
+                  {stageData.map((s,i)=>{
+                    const prev=i>0?stageData[i-1].value:null;
+                    const pct=prev&&prev>0?Math.round((s.value/prev)*100):null;
+                    const color=SC[s.name]?.c||C.slate;
+                    return(
+                      <div key={s.name}>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:5,alignItems:"center"}}>
+                          <span style={{fontSize:13,fontWeight:600,color:C.text}}>{s.name}</span>
+                          <div style={{display:"flex",gap:12,alignItems:"center"}}>
+                            {pct!==null&&<span style={{fontSize:11,fontWeight:700,color:pct>=50?C.green:pct>=25?C.amber:C.red,background:pct>=50?C.greenBg:pct>=25?C.amberBg:C.redBg,padding:"2px 8px",borderRadius:20}}>{pct}% conv.</span>}
+                            <span style={{fontSize:12,fontWeight:700,color:C.text}}>{s.value} leads</span>
+                          </div>
+                        </div>
+                        <div style={{background:C.light,borderRadius:6,height:24,overflow:"hidden",position:"relative"}}>
+                          <div style={{width:`${totalLeads>0?Math.max((s.value/totalLeads)*100,s.value>0?4:0):0}%`,background:color,height:"100%",borderRadius:6,display:"flex",alignItems:"center",paddingLeft:10,transition:"width 0.5s"}}>
+                            {s.value>0&&<span style={{color:"white",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>R$ {(s.val/1000).toFixed(0)}K</span>}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div style={card}>
+                <STitle>Leads por origem</STitle>
+                <div style={{marginTop:12,display:"flex",flexDirection:"column",gap:10}}>
+                  {sourceData.slice(0,7).map((s,i)=>(
+                    <div key={s.n} style={{display:"flex",alignItems:"center",gap:8}}>
+                      <div style={{width:10,height:10,borderRadius:"50%",background:srcColors[i%srcColors.length],flexShrink:0}}/>
+                      <span style={{fontSize:12,color:C.slate,flex:1}}>{s.n}</span>
+                      <div style={{flex:2,background:C.light,borderRadius:4,height:8,overflow:"hidden"}}>
+                        <div style={{width:`${totalLeads>0?Math.round((s.v/totalLeads)*100):0}%`,background:srcColors[i%srcColors.length],height:"100%",borderRadius:4}}/>
+                      </div>
+                      <span style={{fontSize:12,fontWeight:600,color:C.text,width:24,textAlign:"right"}}>{s.v}</span>
+                      <span style={{fontSize:11,color:C.muted,width:32,textAlign:"right"}}>{totalLeads>0?Math.round((s.v/totalLeads)*100):0}%</span>
+                    </div>
+                  ))}
+                  {sourceData.length===0&&<div style={{color:C.muted,fontSize:13,textAlign:"center",padding:20}}>Nenhum dado</div>}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </Pg>
     );
   };
