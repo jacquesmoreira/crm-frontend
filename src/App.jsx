@@ -1974,3 +1974,5 @@ function Avatar({name,size=28}){if(!name)return null;const initials=name.split("
 function ScoreBadge({s}){const score=s||50;const bg=score>=80?"#ecfdf5":score>=60?"#fffbeb":"#fef2f2";const tx=score>=80?"#047857":score>=60?"#b45309":"#b91c1c";return <span style={{background:bg,color:tx,borderRadius:5,padding:"1px 7px",fontSize:11,fontWeight:700,flexShrink:0}}>{score}</span>;}
 function Toggle({active,onToggle}){return(<div onClick={e=>{e.stopPropagation();onToggle();}} style={{width:38,height:20,borderRadius:10,background:active?"#00c896":"#e2e8f0",cursor:"pointer",position:"relative",transition:"background 0.2s",flexShrink:0}}><div style={{position:"absolute",top:2,left:active?20:2,width:16,height:16,borderRadius:"50%",background:"white",transition:"left 0.2s",boxShadow:"0 1px 3px rgba(0,0,0,0.2)"}}/></div>);}
 
+
+ 
