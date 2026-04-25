@@ -83,9 +83,9 @@ function AuthScreen({onLogin}) {
     setLoading(false);
   };
   return(
-    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0d1117 0%,#0f1f2e 50%,#0d1a1a 100%)",display:"flex",overflow:"hidden"}}>
-      {/* Left panel */}
-      <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",padding:"60px 64px",position:"relative"}}>
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0d1117 0%,#0f1f2e 50%,#0d1a1a 100%)",display:"flex",overflow:"hidden",flexDirection:window.innerWidth<768?"column":"row"}}>
+      {/* Left panel - hidden on mobile */}
+      <div style={{flex:1,display:window.innerWidth<768?"none":"flex",flexDirection:"column",justifyContent:"center",padding:"60px 64px",position:"relative"}}>
         <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,backgroundImage:"radial-gradient(circle at 20% 50%, rgba(0,200,150,0.08) 0%, transparent 60%)",pointerEvents:"none"}}/>
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:64}}>
           <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
@@ -113,7 +113,7 @@ function AuthScreen({onLogin}) {
         </div>
       </div>
       {/* Right panel */}
-      <div style={{width:480,background:"white",display:"flex",flexDirection:"column",justifyContent:"center",padding:"48px 52px",boxShadow:"-20px 0 60px rgba(0,0,0,0.3)"}}>
+      <div style={{width:window.innerWidth<768?"100%":480,background:"white",display:"flex",flexDirection:"column",justifyContent:"center",padding:window.innerWidth<768?"32px 24px":"48px 52px",boxShadow:window.innerWidth<768?"none":"-20px 0 60px rgba(0,0,0,0.3)",overflowY:"auto"}}>
         <div style={{marginBottom:32}}>
           <h2 style={{fontSize:26,fontWeight:800,color:C.text,letterSpacing:"-0.5px",marginBottom:6}}>{mode==="login"?"Bem-vindo de volta!":"Criar sua conta grátis"}</h2>
           <p style={{fontSize:14,color:C.muted}}>{mode==="login"?"Entre na sua conta ClienData":"15 dias grátis, sem cartão de crédito"}</p>
@@ -415,6 +415,26 @@ export default function CRMPro(){
     setGeneratingPDF(false);
   };
   const propTotal=proposal.items.reduce((a,it)=>a+(Number(it.qty)||1)*(Number(it.price)||0),0);
+
+  const [installPrompt,setInstallPrompt]=useState(null);
+  const [showInstall,setShowInstall]=useState(false);
+  const [isMobile,setIsMobile]=useState(window.innerWidth<768);
+  const [mobileMenuOpen,setMobileMenuOpen]=useState(false);
+
+  useEffect(()=>{
+    const handler=(e)=>{e.preventDefault();setInstallPrompt(e);setShowInstall(true);};
+    window.addEventListener("beforeinstallprompt",handler);
+    const resize=()=>setIsMobile(window.innerWidth<768);
+    window.addEventListener("resize",resize);
+    return()=>{window.removeEventListener("beforeinstallprompt",handler);window.removeEventListener("resize",resize);};
+  },[]);
+
+  const installApp=async()=>{
+    if(!installPrompt)return;
+    installPrompt.prompt();
+    const result=await installPrompt.userChoice;
+    if(result.outcome==="accepted"){setShowInstall(false);setInstallPrompt(null);}
+  };
 
   if(!authUser)return <AuthScreen onLogin={handleLogin}/>;
   if(!workspace)return <WorkspaceSelector user={authUser} workspaces={wsList} onSelect={setWorkspace} token={token} API={API}/>;
@@ -1796,7 +1816,23 @@ Responda APENAS com o e-mail, sem nenhum comentário. Primeira linha = assunto (
   };
 
   return(
-    <div style={{display:"flex",height:"100vh",fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif',background:"#f1f5f9",overflow:"hidden"}}>
+    <div style={{display:"flex",height:"100vh",fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif',background:"#f1f5f9",overflow:"hidden",flexDirection:isMobile?"column":"row"}}>
+
+      {/* PWA Install Banner */}
+      {showInstall&&(
+        <div style={{position:"fixed",bottom:isMobile?80:24,left:"50%",transform:"translateX(-50%)",background:"#0d1117",color:"white",borderRadius:14,padding:"14px 20px",display:"flex",alignItems:"center",gap:14,boxShadow:"0 8px 32px rgba(0,0,0,0.4)",zIndex:999,width:isMobile?"calc(100% - 32px)":"auto",maxWidth:400}}>
+          <svg width="32" height="32" viewBox="0 0 40 40" fill="none" style={{flexShrink:0}}><rect width="40" height="40" rx="9" fill="#00c896"/><path d="M10 20C10 14.477 14.477 10 20 10C23.18 10 26.02 11.38 28 13.6L24.4 16.5C23.36 15.24 21.78 14.44 20 14.44C16.93 14.44 14.44 16.93 14.44 20C14.44 23.07 16.93 25.56 20 25.56C21.78 25.56 23.36 24.76 24.4 23.5L28 26.4C26.02 28.62 23.18 30 20 30C14.477 30 10 25.523 10 20Z" fill="#0d1117"/><circle cx="28" cy="20" r="3" fill="#0d1117"/></svg>
+          <div style={{flex:1}}>
+            <div style={{fontWeight:700,fontSize:13}}>Instalar ClienData</div>
+            <div style={{fontSize:11,color:"#64748b",marginTop:2}}>Acesse mais rápido pela tela inicial</div>
+          </div>
+          <button onClick={installApp} style={{background:"#00c896",color:"#0d1117",border:"none",borderRadius:8,padding:"8px 16px",fontWeight:700,fontSize:13,cursor:"pointer",whiteSpace:"nowrap"}}>Instalar</button>
+          <button onClick={()=>setShowInstall(false)} style={{background:"none",border:"none",color:"#475569",cursor:"pointer",fontSize:18,padding:4}}>✕</button>
+        </div>
+      )}
+
+      {/* DESKTOP SIDEBAR */}
+      {!isMobile&&(
       <div style={{width:220,background:"#0d1117",display:"flex",flexDirection:"column",flexShrink:0,borderRight:"1px solid rgba(255,255,255,0.05)"}}>
         <div style={{padding:"20px 16px",borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
@@ -1824,6 +1860,11 @@ Responda APENAS com o e-mail, sem nenhum comentário. Primeira linha = assunto (
           ))}
         </nav>
         <div style={{padding:"14px 12px",borderTop:"1px solid rgba(255,255,255,0.05)"}}>
+          {showInstall&&(
+            <button onClick={installApp} style={{width:"100%",background:"rgba(0,200,150,0.1)",color:"#00c896",border:"1px solid rgba(0,200,150,0.2)",borderRadius:8,padding:"8px",fontSize:12,fontWeight:600,cursor:"pointer",marginBottom:8,display:"flex",alignItems:"center",gap:6,justifyContent:"center"}}>
+              📲 Instalar app
+            </button>
+          )}
           <div style={{display:"flex",alignItems:"center",gap:10,padding:"8px",borderRadius:9,background:"rgba(255,255,255,0.03)"}}>
             <div style={{width:32,height:32,background:"linear-gradient(135deg,#00c896,#0097a7)",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800,color:"white",flexShrink:0}}>{authUser.name.split(" ").map(n=>n[0]).join("").slice(0,2)}</div>
             <div style={{flex:1,minWidth:0}}>
@@ -1834,6 +1875,48 @@ Responda APENAS com o e-mail, sem nenhum comentário. Primeira linha = assunto (
           </div>
         </div>
       </div>
+      )}
+
+      {/* MOBILE TOP BAR */}
+      {isMobile&&(
+        <div style={{background:"#0d1117",padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:"1px solid rgba(255,255,255,0.05)",flexShrink:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <svg width="26" height="26" viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="9" fill="#00c896"/><path d="M10 20C10 14.477 14.477 10 20 10C23.18 10 26.02 11.38 28 13.6L24.4 16.5C23.36 15.24 21.78 14.44 20 14.44C16.93 14.44 14.44 16.93 14.44 20C14.44 23.07 16.93 25.56 20 25.56C21.78 25.56 23.36 24.76 24.4 23.5L28 26.4C26.02 28.62 23.18 30 20 30C14.477 30 10 25.523 10 20Z" fill="#0d1117"/><circle cx="28" cy="20" r="3" fill="#0d1117"/></svg>
+            <span style={{color:"white",fontWeight:800,fontSize:15}}>Clien<span style={{color:"#00c896"}}>Data</span></span>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <span style={{color:"#94a3b8",fontSize:13,fontWeight:500}}>{NAV.find(n=>n.id===tab)?.label}</span>
+            <button onClick={()=>setMobileMenuOpen(p=>!p)} style={{background:"rgba(255,255,255,0.06)",border:"none",color:"white",borderRadius:8,width:36,height:36,cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>☰</button>
+          </div>
+        </div>
+      )}
+
+      {/* MOBILE SLIDE MENU */}
+      {isMobile&&mobileMenuOpen&&(
+        <div style={{position:"fixed",inset:0,zIndex:200}} onClick={()=>setMobileMenuOpen(false)}>
+          <div style={{position:"absolute",top:0,right:0,bottom:0,width:260,background:"#0d1117",padding:"20px 12px",display:"flex",flexDirection:"column",boxShadow:"-4px 0 24px rgba(0,0,0,0.5)"}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,paddingBottom:12,borderBottom:"1px solid rgba(255,255,255,0.07)"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <div style={{width:32,height:32,background:"linear-gradient(135deg,#00c896,#0097a7)",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800,color:"white"}}>{authUser.name.split(" ").map(n=>n[0]).join("").slice(0,2)}</div>
+                <div><div style={{color:"white",fontSize:13,fontWeight:600}}>{authUser.name}</div><div style={{color:"#475569",fontSize:11}}>{workspace.name}</div></div>
+              </div>
+              <button onClick={()=>setMobileMenuOpen(false)} style={{background:"none",border:"none",color:"#475569",fontSize:20,cursor:"pointer"}}>✕</button>
+            </div>
+            {NAV.map(item=>(
+              <button key={item.id} onClick={()=>{setTab(item.id);setMobileMenuOpen(false);}} style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"11px 12px",borderRadius:9,border:"none",cursor:"pointer",marginBottom:2,background:tab===item.id?"rgba(0,200,150,0.12)":"transparent",color:tab===item.id?"#00c896":"#94a3b8",fontSize:14,fontWeight:tab===item.id?600:400,textAlign:"left"}}>
+                <span style={{fontSize:16}}>{item.icon}</span>{item.label}
+                {item.id==="tasks"&&overdue>0&&<span style={{marginLeft:"auto",background:C.red,color:"white",borderRadius:"50%",width:18,height:18,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700}}>{overdue}</span>}
+                {item.id==="whatsapp"&&unreadWA>0&&<span style={{marginLeft:"auto",background:"#00c896",color:"#0d1117",borderRadius:"50%",width:18,height:18,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:800}}>{unreadWA}</span>}
+              </button>
+            ))}
+            <div style={{marginTop:"auto",paddingTop:12,borderTop:"1px solid rgba(255,255,255,0.07)",display:"flex",flexDirection:"column",gap:8}}>
+              {showInstall&&<button onClick={()=>{installApp();setMobileMenuOpen(false);}} style={{background:"rgba(0,200,150,0.1)",color:"#00c896",border:"1px solid rgba(0,200,150,0.2)",borderRadius:8,padding:"10px",fontSize:13,fontWeight:600,cursor:"pointer"}}>📲 Instalar app no celular</button>}
+              <button onClick={()=>{setWorkspace(null);setMobileMenuOpen(false);}} style={{background:"rgba(255,255,255,0.04)",color:"#94a3b8",border:"none",borderRadius:8,padding:"10px",fontSize:13,cursor:"pointer"}}>⇅ Trocar workspace</button>
+              <button onClick={()=>{setAuthUser(null);setWorkspace(null);setWsList([]);setTab("dashboard");localStorage.removeItem("crm_token");}} style={{background:"none",color:"#ef4444",border:"1px solid rgba(239,68,68,0.2)",borderRadius:8,padding:"10px",fontSize:13,cursor:"pointer"}}>⏻ Sair</button>
+            </div>
+          </div>
+        </div>
+      )}
       <main style={{flex:1,overflow:"auto",background:"#f1f5f9",display:"flex",flexDirection:"column"}}>
         {tab==="dashboard"   &&<Dashboard/>}
         {tab==="pipeline"    &&<Pipeline/>}
